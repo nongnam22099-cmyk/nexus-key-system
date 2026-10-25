@@ -525,7 +525,7 @@ SubmitCorner.Parent = SubmitButton
 
 -- Bottom Buttons Row (Get Key & Discord)
 local GetKeyButton = Instance.new("TextButton")
-GetKeyButton.Text = "Get Key (Copy URL)"
+GetKeyButton.Text = "Check Key (Copy URL)"
 GetKeyButton.Font = Enum.Font.Gotham
 GetKeyButton.TextSize = 11
 GetKeyButton.TextColor3 = Color3.fromRGB(160, 180, 210)
