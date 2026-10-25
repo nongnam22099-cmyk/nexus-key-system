@@ -1,0 +1,32 @@
+{
+  "port": 3000,
+  "adminPassword": "namnuea220656",
+  "secretKey": "nexus-key-system-jwt-secret-replace-in-production",
+  "keyPrefix": "NEXUS-",
+  "scriptPath": "nexus_hub.lua",
+  "discordWebhookUrl": "https://discord.com/api/webhooks/1563715857153007838/NZ1LcjhjhLd1iriX3de_oLWRkKRt-Yhq6dZpeqvx-8AZhj7xuQKgfevju3TlRx2FwhdU",
+  "webhookEnabled": false,
+  "notifyOnSuccess": true,
+  "notifyOnFailed": true,
+  "autoLockHwid": true,
+  "maintenanceMode": false,
+  "maintenanceReason": "ระบบปิดปรับปรุงชั่วคราวเพื่ออัปเดตความปลอดภัย กรุณารอประกาศ",
+  "announcement": {
+    "id": 1792890601595,
+    "title": "Nexus Hub Announcement",
+    "message": "ทำไร",
+    "active": true
+  },
+  "freeKeyCooldownHours": 24,
+  "gameSettings": {
+    "farmSpeedMultiplier": 2,
+    "miningDelaySeconds": 1.2,
+    "autoVaultEnabled": true,
+    "antiAfkEnabled": true,
+    "whiteCircleBypass": false
+  },
+  "monetization": {
+    "enabled": false,
+    "gatewayUrl": ""
+  }
+}

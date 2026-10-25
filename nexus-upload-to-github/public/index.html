@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus Hub - Key Management Dashboard</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(16, 22, 36, 0.9);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #00e5ff;
+      --primary-hover: #00b4d8;
+      --accent: #7928ca;
+      --success: #00ff88;
+      --warning: #ffb703;
+      --danger: #ff4757;
+      --text: #f0f6fc;
+      --text-muted: #8b949e;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body {
+      background: radial-gradient(circle at 50% 0%, #151d36 0%, var(--bg) 80%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Navbar */
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 32px;
+      background: rgba(11, 15, 25, 0.95);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 18px;
+      color: #0b0f19;
+      box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
+    }
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: rgba(0, 255, 136, 0.12);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      color: var(--success);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #00b4d8);
+      color: #0b0f19;
+      box-shadow: 0 4px 12px rgba(0, 229, 255, 0.25);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 4px 18px rgba(0, 229, 255, 0.45);
+      transform: translateY(-1px);
+    }
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .btn-danger-outline {
+      background: rgba(255, 71, 87, 0.1);
+      border: 1px solid rgba(255, 71, 87, 0.3);
+      color: #ff6b81;
+    }
+    .btn-danger-outline:hover {
+      background: rgba(255, 71, 87, 0.2);
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1300px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 24px;
+      flex: 1;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+    }
+    .stat-total::after { background: linear-gradient(90deg, #00e5ff, #7928ca); }
+    .stat-active::after { background: var(--success); }
+    .stat-expired::after { background: var(--warning); }
+    .stat-today::after { background: #38bdf8; }
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .stat-value {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    /* Controls Bar */
+    .controls-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+    }
+    .search-filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      flex: 1;
+      max-width: 700px;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 220px;
+      padding: 10px 14px;
+      background: rgba(10, 14, 23, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+    .search-box:focus {
+      border-color: var(--primary);
+    }
+    .select-filter {
+      padding: 10px 14px;
+      background: rgba(10, 14, 23, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      cursor: pointer;
+    }
+    .select-filter option {
+      background: #0d121f;
+    }
+
+    /* Table Container */
+    .table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    thead th {
+      background: rgba(10, 14, 23, 0.85);
+      color: var(--text-muted);
+      padding: 14px 18px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    tbody td {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      vertical-align: middle;
+    }
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .key-badge {
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      color: var(--primary);
+      background: rgba(0, 229, 255, 0.08);
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 229, 255, 0.2);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .key-badge:hover {
+      background: rgba(0, 229, 255, 0.15);
+      border-color: var(--primary);
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-active { background: rgba(0, 255, 136, 0.15); color: var(--success); border: 1px solid rgba(0, 255, 136, 0.3); }
+    .badge-expired { background: rgba(255, 183, 3, 0.15); color: var(--warning); border: 1px solid rgba(255, 183, 3, 0.3); }
+    .badge-banned { background: rgba(255, 71, 87, 0.15); color: var(--danger); border: 1px solid rgba(255, 71, 87, 0.3); }
+    .badge-lifetime { background: rgba(121, 40, 202, 0.2); color: #d8b4fe; border: 1px solid rgba(121, 40, 202, 0.4); }
+
+    .hwid-tag {
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 3px 6px;
+      border-radius: 4px;
+      max-width: 140px;
+      display: inline-block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .action-group {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-icon {
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      transition: all 0.15s ease;
+    }
+    .btn-icon:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .btn-icon.danger:hover {
+      background: rgba(255, 71, 87, 0.2);
+      border-color: var(--danger);
+      color: #ff6b81;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-card {
+      background: #111726;
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 520px;
+      padding: 28px;
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 229, 255, 0.15);
+      position: relative;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .close-btn:hover { color: #fff; }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-input, .form-select {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(10, 14, 23, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+    .form-input:focus, .form-select:focus {
+      border-color: var(--primary);
+    }
+
+    .keys-result-area {
+      display: none;
+      margin-top: 18px;
+      padding: 14px;
+      background: rgba(10, 14, 23, 0.9);
+      border: 1px solid rgba(0, 255, 136, 0.3);
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 13px;
+      color: var(--success);
+      white-space: pre-wrap;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #111827;
+      border: 1px solid var(--primary);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 15px rgba(0, 229, 255, 0.3);
+      display: none;
+      z-index: 9999;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="brand">
+      <div class="brand-logo">N</div>
+      <div>
+        <div class="brand-title">Nexus Hub | Key Manager</div>
+        <div style="font-size: 11px; color: var(--text-muted);">ระบบจัดการคีย์ & License Server</div>
+      </div>
+      <div class="status-badge" style="margin-left: 12px;">
+        <span class="dot"></span>
+        <span>SERVER ONLINE</span>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-outline" id="btnOnlinePlayers" style="border-color: rgba(0, 255, 136, 0.4); color: var(--success);">
+        <span class="dot"></span>
+        <span id="navOnlineCount">0 ออนไลน์</span>
+      </button>
+      <button class="btn btn-outline" id="btnAnalytics">📊 สถิติ</button>
+      <button class="btn btn-outline" id="btnBroadcast">📢 ประกาศ</button>
+      <button class="btn btn-outline" id="btnMaintenanceToggle">🔴 ปรับปรุง</button>
+      <button class="btn btn-outline" id="btnGameSettings">⚙️ ตั้งค่าเกม</button>
+      <button class="btn btn-outline" id="btnBlacklist">🚫 แบน</button>
+      <button class="btn btn-outline" id="btnWebhook" style="color: #7289da; border-color: rgba(114, 137, 218, 0.4);">Webhook</button>
+      <button class="btn btn-outline" id="btnBackup">💾 Backup</button>
+      <button class="btn btn-outline" id="btnLogs">Logs</button>
+      <button class="btn btn-outline" id="btnChangePassword">เปลี่ยนรหัส</button>
+      <button class="btn btn-danger-outline" id="btnLogout">ออก</button>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <div class="container">
+    
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card stat-total">
+        <span class="stat-label">คีย์ทั้งหมด (Total Keys)</span>
+        <span class="stat-value" id="statTotal">0</span>
+      </div>
+      <div class="stat-card stat-active">
+        <span class="stat-label">คีย์ที่พร้อมใช้งาน (Active)</span>
+        <span class="stat-value" style="color: var(--success);" id="statActive">0</span>
+      </div>
+      <div class="stat-card stat-expired">
+        <span class="stat-label">หมดอายุ / โดนแบน (Expired/Banned)</span>
+        <span class="stat-value" style="color: var(--warning);" id="statExpired">0</span>
+      </div>
+      <div class="stat-card stat-today">
+        <span class="stat-label">การใช้งานวันนี้ (Verifications Today)</span>
+        <span class="stat-value" style="color: #38bdf8;" id="statToday">0</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-card">
+      <div class="search-filter-group">
+        <input type="text" id="searchInput" class="search-box" placeholder="ค้นหาตามชื่อคีย์, โน้ต หรือ HWID...">
+        <select id="filterSelect" class="select-filter">
+          <option value="all">ทั้งหมด (All Keys)</option>
+          <option value="active">ใช้งานได้ (Active)</option>
+          <option value="expired">หมดอายุแล้ว (Expired)</option>
+          <option value="banned">ถูกระงับ (Banned)</option>
+          <option value="bound">ล็อค HWID แล้ว (HWID Bound)</option>
+        </select>
+        <button class="btn btn-outline" id="btnRefresh">รีเฟรช</button>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <a href="/getkey" target="_blank" class="btn btn-outline" style="text-decoration: none; color: #38bdf8; border-color: rgba(56, 189, 248, 0.4);">🌐 หน้าเว็บรับคีย์ (/getkey)</a>
+        <button class="btn btn-outline" id="btnExport">ส่งออกคีย์ (Export)</button>
+        <button class="btn btn-primary" id="btnOpenCreateModal">+ สร้างคีย์ใหม่ (Generate Key)</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>รหัสคีย์ (Key Code)</th>
+              <th>สถานะ (Status)</th>
+              <th>ระดับ (Tier)</th>
+              <th>ระยะเวลา (Duration)</th>
+              <th>วันหมดอายุ (Expires At)</th>
+              <th>ผู้ใช้ Roblox (User)</th>
+              <th>อุปกรณ์ที่ล็อค (HWID)</th>
+              <th>โน้ต / ผู้ซื้อ (Note)</th>
+              <th>ใช้งาน (Uses)</th>
+              <th>จัดการ (Actions)</th>
+            </tr>
+          </thead>
+          <tbody id="keysTableBody">
+            <tr>
+              <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">กำลังโหลดข้อมูล...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Modal: Generate Key -->
+  <div class="modal-backdrop" id="modalCreate">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">+ สร้างคีย์ใหม่ (Generate Key)</h3>
+        <button class="close-btn" id="closeCreateModal">&times;</button>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">คำนำหน้าคีย์ (Prefix)</label>
+        <input type="text" id="inputPrefix" class="form-input" value="NEXUS-">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">ระดับสิทธิ์ของคีย์ (Key Tier)</label>
+        <select id="inputTier" class="form-select">
+          <option value="VIP" selected>👑 VIP (ปลดล็อคทุกอย่าง - ค่าเริ่มต้น)</option>
+          <option value="FREE">⭐ FREE (ฟาร์มพื้นฐาน)</option>
+          <option value="PREMIUM">💎 PREMIUM (สิทธิ์สูงสุด)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">อายุการใช้งาน (Duration)</label>
+        <select id="inputDuration" class="form-select">
+          <option value="1">1 ชั่วโมง (1 Hour)</option>
+          <option value="6">6 ชั่วโมง (6 Hours)</option>
+          <option value="12">12 ชั่วโมง (12 Hours)</option>
+          <option value="24" selected>1 วัน (24 Hours)</option>
+          <option value="72">3 วัน (3 Days)</option>
+          <option value="168">7 วัน (1 Week)</option>
+          <option value="720">30 วัน (1 Month)</option>
+          <option value="0">ถาวร (Lifetime / ไม่หมดอายุ)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">จำนวนคีย์ที่ต้องการสร้าง</label>
+        <input type="number" id="inputCount" class="form-input" value="1" min="1" max="100">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">โน้ตช่วยจำ / ชื่อลูกค้า (Note - ไม่บังคับ)</label>
+        <input type="text" id="inputNote" class="form-input" placeholder="เช่น ลูกค้าคุณเอ / VIP">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">กำหนดคีย์เอง (Custom Key - ไม่บังคับ)</label>
+        <input type="text" id="inputCustomKey" class="form-input" placeholder="เว้นว่างไว้เพื่อสุ่มอัตโนมัติ">
+      </div>
+
+      <div class="keys-result-area" id="resultKeysArea"></div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-outline" id="btnCopyGenerated" style="display: none;">ก๊อปปี้คีย์ทั้งหมด</button>
+        <button class="btn btn-primary" id="btnSubmitGenerate">สร้างคีย์เดี๋ยวนี้</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Modal: Logs -->
+  <div class="modal-backdrop" id="modalLogs">
+    <div class="modal-card" style="max-width: 750px;">
+      <div class="modal-header">
+        <h3 class="modal-title">ประวัติการตรวจสอบคีย์ล่าสุด (Verification Logs)</h3>
+        <button class="close-btn" id="closeLogsModal">&times;</button>
+      </div>
+      <div style="max-height: 400px; overflow-y: auto;">
+        <table style="width: 100%;">
+          <thead>
+            <tr>
+              <th>เวลา</th>
+              <th>คีย์</th>
+              <th>HWID</th>
+              <th>สถานะ</th>
+              <th>ข้อความ</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody">
+            <tr><td colspan="5" style="text-align: center;">กำลังโหลด...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Modal: Change Password -->
+  <div class="modal-backdrop" id="modalPassword">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">เปลี่ยนรหัสผ่านแอดมิน (Change Password)</h3>
+        <button class="close-btn" id="closePasswordModal">&times;</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">รหัสผ่านปัจจุบัน</label>
+        <input type="password" id="currentPassword" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">รหัสผ่านใหม่</label>
+        <input type="password" id="newPassword" class="form-input">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-primary" id="btnSavePassword">บันทึกรหัสผ่านใหม่</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Modal: Discord Webhook -->
+  <div class="modal-backdrop" id="modalWebhook">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          <svg width="22" height="22" fill="#7289da" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028z"/></svg>
+          ตั้งค่าการแจ้งเตือน Discord Webhook
+        </h3>
+        <button class="close-btn" id="closeWebhookModal">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Discord Webhook URL</label>
+        <input type="text" id="inputWebhookUrl" class="form-input" placeholder="https://discord.com/api/webhooks/...">
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; margin: 16px 0;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+          <input type="checkbox" id="checkWebhookEnabled" style="accent-color: var(--primary);">
+          <span>เปิดใช้งานการแจ้งเตือน (Enable Webhook)</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+          <input type="checkbox" id="checkNotifySuccess" style="accent-color: var(--primary);">
+          <span>แจ้งเตือนเมื่อมีคนใช้งานคีย์สำเร็จ (Key Verified)</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+          <input type="checkbox" id="checkNotifyFailed" style="accent-color: var(--danger);">
+          <span>แจ้งเตือนเมื่อตรวจพบการแชร์คีย์ / คีย์ผิด (HWID Mismatch / Security Alert)</span>
+        </label>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px;">
+        <button class="btn btn-outline" id="btnTestWebhook">ทดสอบส่งเข้า Discord</button>
+        <button class="btn btn-primary" id="btnSaveWebhook">บันทึกการตั้งค่า</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Modal: Maintenance Mode (Kill Switch) -->
+  <div class="modal-backdrop" id="modalMaintenance">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #ff4757; display: flex; align-items: center; gap: 8px;">
+          🔴 สวิตช์ปิดปรับปรุงฉุกเฉิน (Kill Switch)
+        </h3>
+        <button class="close-btn" id="closeMaintenanceModal">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+        เมื่อเปิดโหมดนี้ สคริปต์ในเกมของผู้เล่นทุกคนจะหยุดทำงานทันทีเพื่อป้องกันการโดนเกมแบน
+      </p>
+      <div class="form-group">
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 15px; font-weight: 700; color: #ff6b81;">
+          <input type="checkbox" id="checkMaintenanceMode" style="width: 18px; height: 18px; accent-color: #ff4757;">
+          <span>เปิดโหมดปิดปรับปรุงฉุกเฉิน (Stop All Scripts)</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ข้อความแจ้งเตือนผู้เล่นในเกม</label>
+        <textarea id="inputMaintenanceReason" class="form-input" rows="3" style="resize: vertical; font-family: inherit;">ระบบปิดปรับปรุงชั่วคราวเพื่ออัปเดตความปลอดภัย กรุณารอประกาศ</textarea>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-primary" id="btnSaveMaintenance">บันทึกสถานะ</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Modal: Broadcast Announcement -->
+  <div class="modal-backdrop" id="modalBroadcast">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          📢 ส่งประกาศเข้าเกม (Live In-Game Announcement)
+        </h3>
+        <button class="close-btn" id="closeBroadcastModal">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+        ข้อความจะเด้งแจ้งเตือนขึ้นบนหน้าจอ Roblox ของผู้เล่นทุกคนที่กำลังรันสคริปต์อยู่ทันที!
+      </p>
+      <div class="form-group">
+        <label class="form-label">หัวข้อประกาศ (Title)</label>
+        <input type="text" id="inputBroadcastTitle" class="form-input" value="Nexus Hub Announcement">
+      </div>
+      <div class="form-group">
+        <label class="form-label">เนื้อหาประกาศ (Message)</label>
+        <textarea id="inputBroadcastMessage" class="form-input" rows="3" placeholder="เช่น อัปเดตเวอร์ชันใหม่แล้ว! ห้ามฟาร์มโซน A ชั่วคราว..."></textarea>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+        <button class="btn btn-danger-outline" id="btnClearBroadcast">ยกเลิกประกาศ</button>
+        <button class="btn btn-primary" id="btnSendBroadcast">ส่งประกาศเดี๋ยวนี้</button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Modal: Live Online Players -->
+  <div class="modal-backdrop" id="modalOnlinePlayers">
+    <div class="modal-card" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          🟢 รายชื่อผู้เล่นที่กำลังออนไลน์ (Live Online Players)
+        </h3>
+        <button class="close-btn" id="closeOnlinePlayersModal">&times;</button>
+      </div>
+      <div style="max-height: 420px; overflow-y: auto;">
+        <table style="width: 100%;">
+          <thead>
+            <tr>
+              <th>ผู้เล่น Roblox</th>
+              <th>User ID</th>
+              <th>คีย์ที่ใช้</th>
+              <th>ออนไลน์มาแล้ว</th>
+              <th>Server Job</th>
+            </tr>
+          </thead>
+          <tbody id="onlinePlayersTableBody">
+            <tr><td colspan="5" style="text-align: center; padding: 20px;">กำลังโหลด...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- Modal: Analytics -->
+  <div class="modal-backdrop" id="modalAnalytics">
+    <div class="modal-card" style="max-width: 650px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          📊 สถิติและการเติบโต (Analytics & Trends)
+        </h3>
+        <button class="close-btn" id="closeAnalyticsModal">&times;</button>
+      </div>
+
+      <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">สัดส่วนคีย์ตามระดับสิทธิ์ (Tier Distribution):</div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
+        <div style="background: rgba(121, 40, 202, 0.15); border: 1px solid rgba(121, 40, 202, 0.4); padding: 14px; border-radius: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #d8b4fe; font-weight: 700;">VIP TIER</div>
+          <div style="font-size: 26px; font-weight: 800; color: #fff;" id="chartVipCount">0</div>
+        </div>
+        <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); padding: 14px; border-radius: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #38bdf8; font-weight: 700;">FREE TIER</div>
+          <div style="font-size: 26px; font-weight: 800; color: #fff;" id="chartFreeCount">0</div>
+        </div>
+        <div style="background: rgba(255, 215, 0, 0.15); border: 1px solid rgba(255, 215, 0, 0.4); padding: 14px; border-radius: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #ffd700; font-weight: 700;">PREMIUM</div>
+          <div style="font-size: 26px; font-weight: 800; color: #fff;" id="chartPremiumCount">0</div>
+        </div>
+      </div>
+
+      <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">สถิติการใช้งานย้อนหลัง 7 วัน (7-Day Verifications Trend):</div>
+      <div id="analyticsBarsContainer" style="display: flex; align-items: flex-end; justify-content: space-around; gap: 10px; height: 160px; padding: 14px 10px; background: rgba(0,0,0,0.3); border-radius: 10px; border: 1px solid var(--border);"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Blacklist -->
+  <div class="modal-backdrop" id="modalBlacklist">
+    <div class="modal-card" style="max-width: 750px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #ff4757; display: flex; align-items: center; gap: 8px;">
+          🚫 จัดการรายชื่อแบนถาวร (Blacklist Manager)
+        </h3>
+        <button class="close-btn" id="closeBlacklistModal">&times;</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap;">
+        <select id="inputBlacklistType" class="form-select" style="max-width: 130px;">
+          <option value="username">Roblox User</option>
+          <option value="user_id">User ID</option>
+          <option value="hwid">HWID</option>
+          <option value="ip">IP Address</option>
+        </select>
+        <input type="text" id="inputBlacklistTarget" class="form-input" placeholder="เป้าหมาย (ชื่อ / ID)..." style="flex: 1; min-width: 140px;">
+        <input type="text" id="inputBlacklistReason" class="form-input" placeholder="เหตุผล (เช่น ขโมยสคริปต์)..." style="flex: 1; min-width: 140px;">
+        <button class="btn btn-primary" id="btnAddBlacklist" style="width: auto; padding: 0 16px;">+ แบนทันที</button>
+      </div>
+
+      <div style="max-height: 280px; overflow-y: auto;">
+        <table style="width: 100%;">
+          <thead>
+            <tr>
+              <th>ประเภท</th>
+              <th>เป้าหมาย (Target)</th>
+              <th>เหตุผล</th>
+              <th>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody id="blacklistTableBody">
+            <tr><td colspan="4" style="text-align: center; padding: 15px;">กำลังโหลด...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Game Remote Settings -->
+  <div class="modal-backdrop" id="modalGameSettings">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+          ⚙️ ปรับแต่งสคริปต์ในเกมสด (Game Remote Config)
+        </h3>
+        <button class="close-btn" id="closeGameSettingsModal">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+        การตั้งค่าเหล่านี้จะส่งตรงไปยังผู้เล่นทุกคนที่กำลังรันสคริปต์อยู่ในเกมทันที
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">ความเร็วในการฟาร์ม: <span id="valFarmSpeed" style="color: var(--primary); font-weight: 700;">1.0x</span></label>
+        <input type="range" id="rangeFarmSpeed" min="0.5" max="3.0" step="0.1" value="1.0" style="width: 100%; accent-color: var(--primary);">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">ดีเลย์การตีแร่ / ฟาร์ม: <span id="valMiningDelay" style="color: var(--warning); font-weight: 700;">1.5s</span></label>
+        <input type="range" id="rangeMiningDelay" min="0.5" max="4.0" step="0.1" value="1.5" style="width: 100%; accent-color: var(--warning);">
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; margin: 18px 0;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+          <input type="checkbox" id="checkAutoVault" style="accent-color: var(--primary);">
+          <span>เปิดระบบฝากตู้เซฟอัตโนมัติ (Auto Safe Vault)</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+          <input type="checkbox" id="checkAntiAfk" style="accent-color: var(--primary);">
+          <span>เปิดระบบกันหลุดเซิร์ฟเวอร์ (Anti-AFK Protection)</span>
+        </label>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-primary" id="btnSaveGameSettings">บันทึกและส่งเข้าเกม</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const token = localStorage.getItem('nexus_admin_token');
+    if (!token) {
+      window.location.href = '/login';
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+      try {
+        const options = {
+          method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        };
+        if (body) options.body = JSON.stringify(body);
+        const res = await fetch(endpoint, options);
+        if (res.status === 401) {
+          localStorage.removeItem('nexus_admin_token');
+          window.location.href = '/login';
+          return null;
+        }
+        return await res.json();
+      } catch (err) {
+        showToast('การเชื่อมต่อขัดข้อง');
+        return null;
+      }
+    }
+
+    async function loadStats() {
+      const data = await apiRequest('/api/admin/stats');
+      if (data && data.success) {
+        document.getElementById('statTotal').innerText = data.stats.totalKeys;
+        document.getElementById('statActive').innerText = data.stats.activeKeys;
+        document.getElementById('statExpired').innerText = (data.stats.expiredKeys + data.stats.bannedKeys);
+        document.getElementById('statToday').innerText = data.stats.verificationsToday;
+      }
+    }
+
+    let allKeysCache = [];
+
+    async function loadKeys() {
+      const filter = document.getElementById('filterSelect').value;
+      const search = document.getElementById('searchInput').value;
+      const query = new URLSearchParams({ filter, search }).toString();
+
+      const data = await apiRequest(`/api/admin/keys?${query}`);
+      const tbody = document.getElementById('keysTableBody');
+      tbody.innerHTML = '';
+
+      if (!data || !data.success || data.keys.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">ไม่พบคีย์ในระบบ</td></tr>`;
+        allKeysCache = [];
+        return;
+      }
+
+      allKeysCache = data.keys;
+
+      data.keys.forEach(k => {
+        const tr = document.createElement('tr');
+
+        // Status badge
+        let statusBadge = '<span class="badge badge-active">Active</span>';
+        if (k.status === 'banned') {
+          statusBadge = '<span class="badge badge-banned">Banned</span>';
+        } else if (k.status === 'expired' || (k.expires_at && Date.now() > k.expires_at)) {
+          statusBadge = '<span class="badge badge-expired">Expired</span>';
+        }
+
+        // Tier badge
+        let tierBadge = '<span class="badge" style="background: rgba(121, 40, 202, 0.25); color: #d8b4fe; border: 1px solid #a855f7;">VIP</span>';
+        if (k.tier === 'FREE') tierBadge = '<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8;">FREE</span>';
+        else if (k.tier === 'PREMIUM') tierBadge = '<span class="badge" style="background: rgba(255, 215, 0, 0.2); color: #ffd700; border: 1px solid #ffd700;">PREMIUM</span>';
+
+        // Duration text
+        let durationText = `${k.duration_hours} ชั่วโมง`;
+        if (k.duration_hours === 0) durationText = '<span class="badge badge-lifetime">ถาวร (Lifetime)</span>';
+        else if (k.duration_hours % 24 === 0) durationText = `${k.duration_hours / 24} วัน`;
+
+        // Expires At
+        let expiresText = 'ยังไม่ได้เปิดใช้';
+        if (k.duration_hours === 0) {
+          expiresText = 'ไม่มีวันหมดอายุ';
+        } else if (k.expires_at) {
+          expiresText = new Date(k.expires_at).toLocaleString('th-TH');
+        }
+
+        // HWID
+        let hwidHtml = '<span style="color: var(--text-muted); font-size: 11px;">ยังไม่ผูก</span>';
+        if (k.hwid) {
+          hwidHtml = `<span class="hwid-tag" title="${k.hwid}">${k.hwid}</span>`;
+        }
+
+        // Roblox User
+        let robloxUserHtml = '<span style="color: var(--text-muted); font-size: 11px;">-</span>';
+        if (k.roblox_username) {
+          const profileLink = (k.roblox_user_id && k.roblox_user_id !== '0') 
+            ? `https://www.roblox.com/users/${k.roblox_user_id}/profile` 
+            : '#';
+          robloxUserHtml = `<a href="${profileLink}" target="_blank" style="color: #38bdf8; text-decoration: none; font-weight: 600;">@${k.roblox_username}</a>`;
+        }
+
+        tr.innerHTML = `
+          <td>
+            <span class="key-badge" onclick="copyText('${k.key_code}')" title="คลิกเพื่อคัดลอก">
+              ${k.key_code}
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+            </span>
+          </td>
+          <td>${statusBadge}</td>
+          <td>${tierBadge}</td>
+          <td>${durationText}</td>
+          <td style="font-size: 12px; color: ${k.expires_at && Date.now() > k.expires_at ? 'var(--danger)' : 'inherit'};">${expiresText}</td>
+          <td>${robloxUserHtml}</td>
+          <td>${hwidHtml}</td>
+          <td style="font-size: 12px; color: var(--text-muted);">${k.note || '-'}</td>
+          <td style="font-weight: 600;">${k.usage_count}</td>
+          <td>
+            <div class="action-group">
+              <button class="btn-icon" style="color: var(--primary); border-color: rgba(0,229,255,0.4);" onclick="copyRunCode('${k.key_code}')" title="คัดลอกคำสั่งรันให้ลูกค้า">⚡ โค้ด</button>
+              ${k.hwid ? `<button class="btn-icon" onclick="resetHwid('${k.key_code}')" title="ปลดล็อคเครื่อง">รีเซ็ต HWID</button>` : ''}
+              <button class="btn-icon" onclick="toggleStatus('${k.key_code}')">${k.status === 'banned' ? 'ปลดแบน' : 'แบน'}</button>
+              <button class="btn-icon danger" onclick="deleteKey('${k.key_code}')">ลบ</button>
+            </div>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function copyText(text) {
+      navigator.clipboard.writeText(text);
+      showToast('คัดลอกคีย์เรียบร้อยแล้ว: ' + text);
+    }
+
+    async function resetHwid(key) {
+      if (!confirm(`ต้องการรีเซ็ต HWID ของคีย์ ${key} หรือไม่?`)) return;
+      const res = await apiRequest('/api/admin/keys/reset-hwid', 'POST', { key });
+      if (res && res.success) {
+        showToast('รีเซ็ต HWID เรียบร้อยแล้ว');
+        loadKeys();
+      }
+    }
+
+    async function toggleStatus(key) {
+      const res = await apiRequest('/api/admin/keys/toggle-status', 'POST', { key });
+      if (res && res.success) {
+        showToast(`สถานะคีย์เปลี่ยนเป็น: ${res.status}`);
+        loadKeys();
+        loadStats();
+      }
+    }
+
+    async function deleteKey(key) {
+      if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบคีย์ ${key}?`)) return;
+      const res = await apiRequest('/api/admin/keys/delete', 'POST', { key });
+      if (res && res.success) {
+        showToast('ลบคีย์เรียบร้อยแล้ว');
+        loadKeys();
+        loadStats();
+      }
+    }
+
+    // Modal Control
+    const modalCreate = document.getElementById('modalCreate');
+    const resultArea = document.getElementById('resultKeysArea');
+    const btnCopyGen = document.getElementById('btnCopyGenerated');
+
+    document.getElementById('btnOpenCreateModal').onclick = () => {
+      resultArea.style.display = 'none';
+      btnCopyGen.style.display = 'none';
+      modalCreate.style.display = 'flex';
+    };
+    document.getElementById('closeCreateModal').onclick = () => {
+      modalCreate.style.display = 'none';
+    };
+
+    document.getElementById('btnSubmitGenerate').onclick = async () => {
+      const prefix = document.getElementById('inputPrefix').value;
+      const durationHours = document.getElementById('inputDuration').value;
+      const count = document.getElementById('inputCount').value;
+      const note = document.getElementById('inputNote').value;
+      const customKey = document.getElementById('inputCustomKey').value;
+      const tier = document.getElementById('inputTier').value;
+
+      const res = await apiRequest('/api/admin/keys/generate', 'POST', {
+        prefix, durationHours, count, note, customKey, tier
+      });
+
+      if (res && res.success) {
+        resultArea.style.display = 'block';
+        btnCopyGen.style.display = 'inline-block';
+        resultArea.innerText = res.keys.join('\n');
+        showToast(`สร้างสำเร็จ ${res.keys.length} คีย์!`);
+        loadKeys();
+        loadStats();
+      } else {
+        showToast(res ? res.message : 'เกิดข้อผิดพลาด');
+      }
+    };
+
+    btnCopyGen.onclick = () => {
+      copyText(resultArea.innerText);
+    };
+
+    // Export Keys
+    document.getElementById('btnExport').onclick = () => {
+      if (allKeysCache.length === 0) return showToast('ไม่มีรายการคีย์ให้ดาวน์โหลด');
+      let text = 'Key,Status,DurationHours,Note,HWID\n';
+      allKeysCache.forEach(k => {
+        text += `${k.key_code},${k.status},${k.duration_hours},"${k.note || ''}","${k.hwid || ''}"\n`;
+      });
+      const blob = new Blob([text], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `nexus_keys_${Date.now()}.csv`;
+      a.click();
+    };
+
+    // Logs Modal
+    const modalLogs = document.getElementById('modalLogs');
+    document.getElementById('btnLogs').onclick = async () => {
+      modalLogs.style.display = 'flex';
+      const data = await apiRequest('/api/admin/logs?limit=50');
+      const tbody = document.getElementById('logsTableBody');
+      tbody.innerHTML = '';
+      if (!data || !data.logs || data.logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">ไม่มีบันทึก</td></tr>';
+        return;
+      }
+      data.logs.forEach(l => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-size: 11px;">${new Date(l.timestamp).toLocaleTimeString('th-TH')}</td>
+          <td style="font-family: monospace; font-size: 11px;">${l.key_code}</td>
+          <td style="font-family: monospace; font-size: 10px;">${l.hwid ? l.hwid.slice(0, 16) + '...' : '-'}</td>
+          <td><span class="badge ${l.status === 'success' ? 'badge-active' : 'badge-banned'}">${l.status}</span></td>
+          <td style="font-size: 11px; color: var(--text-muted);">${l.message}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    };
+    document.getElementById('closeLogsModal').onclick = () => { modalLogs.style.display = 'none'; };
+
+    // Change Password Modal
+    const modalPassword = document.getElementById('modalPassword');
+    document.getElementById('btnChangePassword').onclick = () => { modalPassword.style.display = 'flex'; };
+    document.getElementById('closePasswordModal').onclick = () => { modalPassword.style.display = 'none'; };
+    document.getElementById('btnSavePassword').onclick = async () => {
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const res = await apiRequest('/api/admin/change-password', 'POST', { currentPassword, newPassword });
+      if (res && res.success) {
+        showToast('เปลี่ยนรหัสผ่านเรียบร้อยแล้ว');
+        modalPassword.style.display = 'none';
+      } else {
+        showToast(res ? res.message : 'รหัสผ่านไม่ถูกต้อง');
+      }
+    };
+
+    // Discord Webhook Modal
+    const modalWebhook = document.getElementById('modalWebhook');
+    document.getElementById('btnWebhook').onclick = async () => {
+      modalWebhook.style.display = 'flex';
+      const data = await apiRequest('/api/admin/webhook');
+      if (data && data.success) {
+        document.getElementById('inputWebhookUrl').value = data.webhookUrl || '';
+        document.getElementById('checkWebhookEnabled').checked = !!data.webhookEnabled;
+        document.getElementById('checkNotifySuccess').checked = data.notifyOnSuccess !== false;
+        document.getElementById('checkNotifyFailed').checked = data.notifyOnFailed !== false;
+      }
+    };
+    document.getElementById('closeWebhookModal').onclick = () => { modalWebhook.style.display = 'none'; };
+
+    document.getElementById('btnSaveWebhook').onclick = async () => {
+      const webhookUrl = document.getElementById('inputWebhookUrl').value;
+      const webhookEnabled = document.getElementById('checkWebhookEnabled').checked;
+      const notifyOnSuccess = document.getElementById('checkNotifySuccess').checked;
+      const notifyOnFailed = document.getElementById('checkNotifyFailed').checked;
+
+      const res = await apiRequest('/api/admin/webhook', 'POST', {
+        webhookUrl, webhookEnabled, notifyOnSuccess, notifyOnFailed
+      });
+
+      if (res && res.success) {
+        showToast(res.message);
+        modalWebhook.style.display = 'none';
+      } else {
+        showToast(res ? res.message : 'เกิดข้อผิดพลาดในการบันทึก');
+      }
+    };
+
+    document.getElementById('btnTestWebhook').onclick = async () => {
+      const webhookUrl = document.getElementById('inputWebhookUrl').value;
+      if (!webhookUrl) return showToast('กรุณาวาง Discord Webhook URL ก่อนทดสอบ');
+      showToast('กำลังส่งข้อความทดสอบเข้า Discord...');
+      const res = await apiRequest('/api/admin/webhook/test', 'POST', { webhookUrl });
+      if (res && res.success) {
+        showToast('ส่งข้อความทดสอบสำเร็จ! โปรดดูที่ช่อง Discord');
+      } else {
+        showToast(res ? res.message : 'ส่งไม่สำเร็จ ตรวจสอบ URL อีกครั้ง');
+      }
+    };
+
+    // Maintenance Mode (Kill Switch)
+    const modalMaintenance = document.getElementById('modalMaintenance');
+    const btnMaintToggle = document.getElementById('btnMaintenanceToggle');
+    async function loadMaintenanceState() {
+      const data = await apiRequest('/api/admin/maintenance');
+      if (data && data.success) {
+        if (data.maintenanceMode) {
+          btnMaintToggle.innerText = '🔴 ปิดปรับปรุงอยู่ (Active)';
+          btnMaintToggle.className = 'btn btn-danger-outline';
+          btnMaintToggle.style.background = 'rgba(255, 71, 87, 0.3)';
+        } else {
+          btnMaintToggle.innerText = '🟢 เซิร์ฟเวอร์ปกติ (Live)';
+          btnMaintToggle.className = 'btn btn-outline';
+          btnMaintToggle.style.background = '';
+        }
+        document.getElementById('checkMaintenanceMode').checked = data.maintenanceMode;
+        document.getElementById('inputMaintenanceReason').value = data.maintenanceReason;
+      }
+    }
+    btnMaintToggle.onclick = () => {
+      loadMaintenanceState();
+      modalMaintenance.style.display = 'flex';
+    };
+    document.getElementById('closeMaintenanceModal').onclick = () => { modalMaintenance.style.display = 'none'; };
+    document.getElementById('btnSaveMaintenance').onclick = async () => {
+      const maintenanceMode = document.getElementById('checkMaintenanceMode').checked;
+      const maintenanceReason = document.getElementById('inputMaintenanceReason').value;
+      const res = await apiRequest('/api/admin/maintenance', 'POST', { maintenanceMode, maintenanceReason });
+      if (res && res.success) {
+        showToast(res.message);
+        loadMaintenanceState();
+        modalMaintenance.style.display = 'none';
+      }
+    };
+
+    // Broadcast Announcement
+    const modalBroadcast = document.getElementById('modalBroadcast');
+    document.getElementById('btnBroadcast').onclick = async () => {
+      const data = await apiRequest('/api/admin/announcement');
+      if (data && data.success && data.announcement) {
+        document.getElementById('inputBroadcastTitle').value = data.announcement.title || 'Nexus Hub Announcement';
+        document.getElementById('inputBroadcastMessage').value = data.announcement.message || '';
+      }
+      modalBroadcast.style.display = 'flex';
+    };
+    document.getElementById('closeBroadcastModal').onclick = () => { modalBroadcast.style.display = 'none'; };
+    document.getElementById('btnSendBroadcast').onclick = async () => {
+      const title = document.getElementById('inputBroadcastTitle').value;
+      const message = document.getElementById('inputBroadcastMessage').value;
+      const res = await apiRequest('/api/admin/announcement', 'POST', { title, message });
+      if (res && res.success) {
+        showToast(res.message);
+        modalBroadcast.style.display = 'none';
+      } else {
+        showToast(res ? res.message : 'เกิดข้อผิดพลาด');
+      }
+    };
+    document.getElementById('btnClearBroadcast').onclick = async () => {
+      const res = await apiRequest('/api/admin/announcement/clear', 'POST');
+      if (res && res.success) {
+        showToast(res.message);
+        document.getElementById('inputBroadcastMessage').value = '';
+        modalBroadcast.style.display = 'none';
+      }
+    };
+
+    // Live Online Players
+    const modalOnlinePlayers = document.getElementById('modalOnlinePlayers');
+    async function updateOnlinePlayersCount() {
+      const data = await apiRequest('/api/admin/online-players');
+      if (data && data.success) {
+        document.getElementById('navOnlineCount').innerText = `${data.count} ออนไลน์`;
+      }
+    }
+    document.getElementById('btnOnlinePlayers').onclick = async () => {
+      modalOnlinePlayers.style.display = 'flex';
+      const data = await apiRequest('/api/admin/online-players');
+      const tbody = document.getElementById('onlinePlayersTableBody');
+      tbody.innerHTML = '';
+      if (!data || !data.success || data.players.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 25px; color: var(--text-muted);">ขณะนี้ยังไม่มีผู้เล่นออนไลน์</td></tr>';
+        return;
+      }
+      data.players.forEach(p => {
+        const tr = document.createElement('tr');
+        const avatarUrl = `https://www.roblox.com/headshot-thumbnail/image?userId=${p.userId}&width=150&height=150&format=png`;
+        tr.innerHTML = `
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <img src="${avatarUrl}" style="width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--primary); background: #000;" onerror="this.src='https://cdn-icons-png.flaticon.com/512/906/906343.png'">
+              <div>
+                <a href="https://www.roblox.com/users/${p.userId}/profile" target="_blank" style="color: #38bdf8; text-decoration: none; font-weight: 700;">${p.displayName}</a>
+                <div style="font-size: 11px; color: var(--text-muted);">@${p.username}</div>
+              </div>
+            </div>
+          </td>
+          <td style="font-family: monospace; font-size: 12px;">${p.userId}</td>
+          <td style="font-family: monospace; font-size: 11px; color: var(--primary);">${p.key}</td>
+          <td style="font-size: 12px;">${p.onlineMinutes} นาที</td>
+          <td style="font-family: monospace; font-size: 10px; color: var(--text-muted);">${(p.jobId || '').slice(0, 12)}...</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    };
+    document.getElementById('closeOnlinePlayersModal').onclick = () => { modalOnlinePlayers.style.display = 'none'; };
+
+    // Quick Run Code Copy
+    function copyRunCode(key) {
+      const code = `getgenv().NexusKey = "${key}"\nloadstring(game:HttpGet("${window.location.origin}/loader", true))()`;
+      navigator.clipboard.writeText(code);
+      showToast('⚡ คัดลอกโค้ดรันในเกมสำเร็จ! ส่งให้ลูกค้าวางใน Executor ได้ทันที');
+    }
+
+    // Analytics Modal
+    const modalAnalytics = document.getElementById('modalAnalytics');
+    document.getElementById('btnAnalytics').onclick = async () => {
+      modalAnalytics.style.display = 'flex';
+      const data = await apiRequest('/api/admin/analytics');
+      if (data && data.success && data.analytics) {
+        const { dailyTrend, tiers } = data.analytics;
+        document.getElementById('chartVipCount').innerText = tiers.vip || 0;
+        document.getElementById('chartFreeCount').innerText = tiers.free || 0;
+        document.getElementById('chartPremiumCount').innerText = tiers.premium || 0;
+
+        const container = document.getElementById('analyticsBarsContainer');
+        container.innerHTML = '';
+        const maxCount = Math.max(...dailyTrend.map(d => d.count), 5);
+
+        dailyTrend.forEach(d => {
+          const barHeight = Math.max(12, Math.floor((d.count / maxCount) * 110));
+          const col = document.createElement('div');
+          col.style.cssText = 'display:flex; flex-direction:column; align-items:center; flex:1; gap:6px;';
+          col.innerHTML = `
+            <span style="font-size:11px; font-weight:700; color:${d.count > 0 ? 'var(--primary)' : 'var(--text-muted)'};">${d.count}</span>
+            <div style="width:100%; max-width:32px; height:${barHeight}px; background:linear-gradient(180deg, var(--primary), var(--accent)); border-radius:6px 6px 0 0; transition:height 0.3s ease;"></div>
+            <span style="font-size:10px; color:var(--text-muted); white-space:nowrap;">${d.label}</span>
+          `;
+          container.appendChild(col);
+        });
+      }
+    };
+    document.getElementById('closeAnalyticsModal').onclick = () => { modalAnalytics.style.display = 'none'; };
+
+    // Blacklist Modal
+    const modalBlacklist = document.getElementById('modalBlacklist');
+    async function loadBlacklist() {
+      const data = await apiRequest('/api/admin/blacklist');
+      const tbody = document.getElementById('blacklistTableBody');
+      tbody.innerHTML = '';
+      if (!data || !data.success || data.list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:15px; color:var(--text-muted);">ไม่มีรายชื่อใน Blacklist</td></tr>';
+        return;
+      }
+      data.list.forEach(b => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="badge badge-banned">${b.type.toUpperCase()}</span></td>
+          <td style="font-family:monospace; font-weight:700; color:#ff6b81;">${b.target}</td>
+          <td style="font-size:12px; color:var(--text-muted);">${b.reason || '-'}</td>
+          <td><button class="btn-icon danger" onclick="removeBlacklist(${b.id})">ปลดแบน</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    document.getElementById('btnBlacklist').onclick = () => {
+      modalBlacklist.style.display = 'flex';
+      loadBlacklist();
+    };
+    document.getElementById('closeBlacklistModal').onclick = () => { modalBlacklist.style.display = 'none'; };
+    document.getElementById('btnAddBlacklist').onclick = async () => {
+      const type = document.getElementById('inputBlacklistType').value;
+      const targetVal = document.getElementById('inputBlacklistTarget').value.trim();
+      const reason = document.getElementById('inputBlacklistReason').value.trim();
+      if (!targetVal) return showToast('กรุณาระบุเป้าหมายที่จะแบน');
+
+      const res = await apiRequest('/api/admin/blacklist/add', 'POST', { type, target: targetVal, reason });
+      if (res && res.success) {
+        showToast(res.message);
+        document.getElementById('inputBlacklistTarget').value = '';
+        document.getElementById('inputBlacklistReason').value = '';
+        loadBlacklist();
+      } else {
+        showToast(res ? res.message : 'เกิดข้อผิดพลาด');
+      }
+    };
+    window.removeBlacklist = async (id) => {
+      const res = await apiRequest('/api/admin/blacklist/remove', 'POST', { id });
+      if (res && res.success) {
+        showToast(res.message);
+        loadBlacklist();
+      }
+    };
+
+    // Game Remote Settings Modal
+    const modalGameSettings = document.getElementById('modalGameSettings');
+    const rangeFarmSpeed = document.getElementById('rangeFarmSpeed');
+    const valFarmSpeed = document.getElementById('valFarmSpeed');
+    const rangeMiningDelay = document.getElementById('rangeMiningDelay');
+    const valMiningDelay = document.getElementById('valMiningDelay');
+
+    rangeFarmSpeed.oninput = () => { valFarmSpeed.innerText = rangeFarmSpeed.value + 'x'; };
+    rangeMiningDelay.oninput = () => { valMiningDelay.innerText = rangeMiningDelay.value + 's'; };
+
+    document.getElementById('btnGameSettings').onclick = async () => {
+      modalGameSettings.style.display = 'flex';
+      const data = await apiRequest('/api/admin/game-settings');
+      if (data && data.success && data.settings) {
+        rangeFarmSpeed.value = data.settings.farmSpeedMultiplier || 1.0;
+        valFarmSpeed.innerText = rangeFarmSpeed.value + 'x';
+        rangeMiningDelay.value = data.settings.miningDelaySeconds || 1.5;
+        valMiningDelay.innerText = rangeMiningDelay.value + 's';
+        document.getElementById('checkAutoVault').checked = data.settings.autoVaultEnabled !== false;
+        document.getElementById('checkAntiAfk').checked = data.settings.antiAfkEnabled !== false;
+      }
+    };
+    document.getElementById('closeGameSettingsModal').onclick = () => { modalGameSettings.style.display = 'none'; };
+    document.getElementById('btnSaveGameSettings').onclick = async () => {
+      const res = await apiRequest('/api/admin/game-settings', 'POST', {
+        farmSpeedMultiplier: rangeFarmSpeed.value,
+        miningDelaySeconds: rangeMiningDelay.value,
+        autoVaultEnabled: document.getElementById('checkAutoVault').checked,
+        antiAfkEnabled: document.getElementById('checkAntiAfk').checked
+      });
+      if (res && res.success) {
+        showToast(res.message);
+        modalGameSettings.style.display = 'none';
+      }
+    };
+
+    // Database Backup Download
+    document.getElementById('btnBackup').onclick = () => {
+      window.location.href = '/api/admin/backup/download';
+      showToast('กำลังดาวน์โหลดไฟล์สำรองฐานข้อมูล (.sqlite)...');
+    };
+
+    // Logout
+    document.getElementById('btnLogout').onclick = () => {
+      localStorage.removeItem('nexus_admin_token');
+      window.location.href = '/login';
+    };
+
+    // Search and Filter events
+    document.getElementById('searchInput').addEventListener('input', () => { loadKeys(); });
+    document.getElementById('filterSelect').addEventListener('change', () => { loadKeys(); });
+    document.getElementById('btnRefresh').onclick = () => { loadStats(); loadKeys(); showToast('รีเฟรชข้อมูลแล้ว'); };
+
+    // Init load
+    loadStats();
+    loadKeys();
+    loadMaintenanceState();
+    updateOnlinePlayersCount();
+    setInterval(updateOnlinePlayersCount, 10000);
+  </script>
+</body>
+</html>
