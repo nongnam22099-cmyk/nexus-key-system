@@ -5,18 +5,74 @@
     ╚═══════════════════════════════════════════════════════════╝
 ]]
 
-local API_URL = "http://localhost:3000" -- เปลี่ยนเป็น Domain/URL เซิร์ฟเวอร์จริงเมื่อนำขึ้นเว็บ
-local SESSION_ID = HttpService:GenerateGUID(false)
-local KEY_FILE = "nexus_key.txt"
-local DISCORD_INVITE = "https://discord.gg/your-discord"
-
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+local API_URL = "http://localhost:3000" -- เปลี่ยนเป็น Domain/URL เซิร์ฟเวอร์จริงเมื่อนำขึ้นเว็บ
+local SESSION_ID = HttpService:GenerateGUID(false)
+local KEY_FILE = "nexus_key.txt"
+local DISCORD_INVITE = "https://discord.gg/your-discord"
+
 -- Get HWID safely across different executors
+local function getClientHWID()
+    if typeof(gethwid) == "function" then
+        local ok, id = pcall(gethwid)
+        if ok and id then return tostring(id) end
+    end
+    if typeof(get_hwid) == "function" then
+        local ok, id = pcall(get_hwid)
+        if ok and id then return tostring(id) end
+    end
+    local ok, clientId = pcall(function()
+        return game:GetService("RbxAnalyticsService"):GetClientId()
+    end)
+    if ok and clientId then return tostring(clientId) end
+    return tostring(LocalPlayer and LocalPlayer.UserId or "0") .. "_DEVICE"
+end
+
+-- HTTP Request wrapper (compatible with all major executors)
+local function sendHttpRequest(url, method, body)
+    method = method or "GET"
+    local requestFunc = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    
+    if requestFunc then
+        local reqOptions = {
+            Url = url,
+            Method = method,
+            Headers = {
+                ["Content-Type"] = "application/json"
+            }
+        }
+        if body then
+            reqOptions.Body = (type(body) == "string") and body or HttpService:JSONEncode(body)
+        end
+        local ok, response = pcall(function()
+            return requestFunc(reqOptions)
+        end)
+        if ok and response then
+            local decoded = nil
+            pcall(function() decoded = HttpService:JSONDecode(response.Body) end)
+            return decoded or { success = false, body = response.Body }
+        end
+    end
+
+    -- Fallback for simple GET requests
+    if method == "GET" then
+        local ok, res = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if ok and res then
+            local decoded = nil
+            pcall(function() decoded = HttpService:JSONDecode(res) end)
+            return decoded or { success = false, body = res }
+        end
+    end
+
+    return { success = false, message = "Network request failed" }
+end
 
 -- ============================================================================
 -- 🛡️ NEXUS SHIELD | ADVANCED ANTI-TAMPER & ANTI-DUMP PROTECTION ENGINE
@@ -47,35 +103,25 @@ local function reportTamperAttempt(threatType, details)
     while true do end -- Freeze execution thread immediately
 end
 
--- 1. Anti-Hooking Integrity Checker
+-- 1. Anti-Hooking Integrity Checker (Safely protects without executor false-positives)
 local function verifyIntegrity()
     local isTampered = false
     local threat = ""
 
-    if isfunctionhooked then
-        if isfunctionhooked(game.HttpGet) or isfunctionhooked(game.HttpPost) then
-            isTampered = true
-            threat = "game.HttpGet / HttpPost hook detected (isfunctionhooked)"
+    pcall(function()
+        if isfunctionhooked then
+            if isfunctionhooked(game.HttpGet) or isfunctionhooked(game.HttpPost) then
+                isTampered = true
+                threat = "game.HttpGet / HttpPost hook detected"
+            end
         end
-    end
 
-    if isluaclosure then
-        if isluaclosure(game.HttpGet) or isluaclosure(game.HttpPost) then
+        local gmt = getrawmetatable and getrawmetatable(game)
+        if gmt and isfunctionhooked and gmt.__namecall and isfunctionhooked(gmt.__namecall) then
             isTampered = true
-            threat = "game.HttpGet replaced with Lua Closure (Hooked)"
+            threat = "Game Metamethod __namecall Hooked"
         end
-    end
-
-    if iscclosure and not iscclosure(game.HttpGet) then
-        isTampered = true
-        threat = "game.HttpGet is not a native C-closure"
-    end
-
-    local gmt = getrawmetatable and getrawmetatable(game)
-    if gmt and isfunctionhooked and gmt.__namecall and isfunctionhooked(gmt.__namecall) then
-        isTampered = true
-        threat = "Game Metamethod __namecall Hooked"
-    end
+    end)
 
     if isTampered then
         reportTamperAttempt("Anti-Hooking: " .. threat, threat)
@@ -130,63 +176,12 @@ local function startActiveSecurityScanner()
     end)
 end
 
-local function getClientHWID()
-    if typeof(gethwid) == "function" then
-        local ok, id = pcall(gethwid)
-        if ok and id then return tostring(id) end
-    end
-    if typeof(get_hwid) == "function" then
-        local ok, id = pcall(get_hwid)
-        if ok and id then return tostring(id) end
-    end
-    local ok, clientId = pcall(function()
-        return game:GetService("RbxAnalyticsService"):GetClientId()
-    end)
-    if ok and clientId then return tostring(clientId) end
-    return tostring(LocalPlayer.UserId) .. "_DEVICE"
-end
+-- Load and execute the main Nexus Hub script (Protected by Nexus Shield)
+local function executeMainScript(key, scriptToken)
+    -- Integrity verification
+    if not verifyIntegrity() then return end
 
--- HTTP Request wrapper (compatible with all major executors)
-local function sendHttpRequest(url, method, body)
-    method = method or "GET"
-    local requestFunc = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
-    
-    if requestFunc then
-        local reqOptions = {
-            Url = url,
-            Method = method,
-            Headers = {
-                ["Content-Type"] = "application/json"
-            }
-        }
-        if body then
-            reqOptions.Body = HttpService:JSONEncode(body)
-        end
-        local ok, response = pcall(function()
-            return requestFunc(reqOptions)
-        end)
-        if ok and response then
-            local decoded = nil
-            pcall(function() decoded = HttpService:JSONDecode(response.Body) end)
-            return decoded or { success = false, message = response.Body }
-        end
-    else
-        -- Fallback to HttpGet
-        local ok, res = pcall(function()
-            return game:HttpGet(url)
-        end)
-        if ok and res then
-            local decoded = nil
-            pcall(function() decoded = HttpService:JSONDecode(res) end)
-            return decoded or { success = false, message = res }
-        end
-    end
-    return { success = false, message = "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ระบบคีย์ได้ (Cannot connect to Key API)" }
-end
-
--- Load and execute the main Nexus Hub script
-local function executeMainScript(key)
-    -- Check local file first
+    -- Check local workspace first (Developer Mode)
     if typeof(readfile) == "function" and typeof(isfile) == "function" and isfile("nexus_hub.lua") then
         local fn, err = loadstring(readfile("nexus_hub.lua"))
         if fn then
@@ -195,23 +190,37 @@ local function executeMainScript(key)
         end
     end
 
-    -- Download from Key Server API
+    -- Download from Key Server API (Protected by Single-Use Token)
     local hwid = getClientHWID()
     local username = LocalPlayer and LocalPlayer.Name or "Unknown"
     local userId = LocalPlayer and tostring(LocalPlayer.UserId) or "0"
-    local fetchUrl = API_URL .. "/api/get-script?key=" .. HttpService:UrlEncode(key) .. "&hwid=" .. HttpService:UrlEncode(hwid) .. "&username=" .. HttpService:UrlEncode(username) .. "&userId=" .. HttpService:UrlEncode(userId)
-        .. "&sessionId=" .. HttpService:UrlEncode(SESSION_ID)
+
+    local fetchUrl = (scriptToken and #scriptToken > 5)
+        and (API_URL .. "/api/get-script?token=" .. HttpService:UrlEncode(scriptToken))
+        or (API_URL .. "/api/get-script?key=" .. HttpService:UrlEncode(key) .. "&hwid=" .. HttpService:UrlEncode(hwid) .. "&username=" .. HttpService:UrlEncode(username) .. "&userId=" .. HttpService:UrlEncode(userId) .. "&sessionId=" .. HttpService:UrlEncode(SESSION_ID))
+
     local ok, scriptContent = pcall(function()
         return game:HttpGet(fetchUrl)
     end)
 
-    if ok and scriptContent then
+    if ok and scriptContent and #scriptContent > 20 then
+        -- Anti-Dump Memory Scrubbing: Compile and immediately scrub raw source string from RAM
         local fn, err = loadstring(scriptContent)
+        scriptContent = nil
+        collectgarbage("collect")
+
         if fn then
-            fn()
+            local runOk, runErr = pcall(fn)
+            fn = nil
+            collectgarbage("collect")
+            if not runOk then
+                warn("[Nexus Hub] Runtime notice:", runErr)
+            end
         else
             warn("[Nexus Hub] Compile error:", err)
         end
+    else
+        warn("[Nexus Hub] Failed to download script payload")
     end
 end
 
@@ -329,7 +338,7 @@ if globalKey and type(globalKey) == "string" and #globalKey:gsub("%s+", "") > 3 
             pcall(function() writefile(KEY_FILE, cleanKey) end)
         end
         startHeartbeatLoop(cleanKey)
-        executeMainScript(cleanKey)
+        executeMainScript(cleanKey, res.scriptToken)
         return
     else
         warn("[Nexus Hub] Key Verification Failed: " .. tostring(res and res.message or "Invalid Key"))
@@ -355,7 +364,7 @@ if typeof(isfile) == "function" and isfile(KEY_FILE) then
             getgenv().NexusTier = res.tier or "VIP"
             print("[Nexus Hub] Key validated automatically from saved file! Tier: " .. tostring(getgenv().NexusTier))
             startHeartbeatLoop(cleanSaved)
-            executeMainScript(cleanSaved)
+            executeMainScript(cleanSaved, res.scriptToken)
             return
         end
     end
@@ -602,7 +611,7 @@ SubmitButton.MouseButton1Click:Connect(function()
 
             getgenv().NexusTier = res.tier or "VIP"
             startHeartbeatLoop(key)
-            executeMainScript(key)
+            executeMainScript(key, res and res.scriptToken)
         else
             StatusLabel.TextColor3 = Color3.fromRGB(255, 71, 87)
             StatusLabel.Text = (res and res.message) or "Invalid key or server offline!"

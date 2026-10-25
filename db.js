@@ -217,6 +217,7 @@ const dbManager = {
       robloxUsername: boundRobloxUser,
       robloxUserId: boundRobloxId,
       tier: keyData.tier || 'VIP',
+      maxScreens: keyData.max_screens !== undefined ? keyData.max_screens : 1,
       maxScreens: keyData.max_screens !== undefined ? keyData.max_screens : 1
     };
   },
@@ -358,11 +359,26 @@ const dbManager = {
     if (!keyCode || typeof keyCode !== 'string') {
       return { success: false, message: 'กรุณากรอกรหัสคีย์' };
     }
-    const cleanKey = keyCode.trim().toUpperCase();
-    const keyData = db.prepare('SELECT * FROM keys WHERE key_code = ?').get(cleanKey);
+    let cleanKey = keyCode.trim().toUpperCase().replace(/\s+/g, '-');
+    let keyData = db.prepare('SELECT * FROM keys WHERE key_code = ?').get(cleanKey);
+
+    // Smart fallback 1: Strip dashes and spaces
+    if (!keyData) {
+      const rawClean = keyCode.trim().toUpperCase().replace(/[-_\s]/g, '');
+      const allKeys = db.prepare('SELECT * FROM keys').all();
+      keyData = allKeys.find(k => k.key_code.replace(/[-_\s]/g, '') === rawClean);
+
+      // Smart fallback 2: Typo tolerance (G vs 6, O vs 0)
+      if (!keyData) {
+        const fuzzyTarget = rawClean.replace(/G/g, '6').replace(/O/g, '0');
+        keyData = allKeys.find(k => k.key_code.replace(/[-_\s]/g, '').replace(/G/g, '6').replace(/O/g, '0') === fuzzyTarget);
+      }
+    }
+
     if (!keyData) {
       return { success: false, message: 'ไม่พบคีย์นี้ในระบบ กรุณาตรวจสอบตัวอักษรอีกครั้ง' };
     }
+    cleanKey = keyData.key_code;
 
     const now = Date.now();
     let statusText = 'พร้อมใช้งาน (Active)';
