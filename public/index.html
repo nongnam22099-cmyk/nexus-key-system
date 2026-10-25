@@ -526,6 +526,7 @@
               <th>สถานะ (Status)</th>
               <th>ระดับ (Tier)</th>
               <th>ระยะเวลา (Duration)</th>
+              <th>จำนวนจอ (Screens)</th>
               <th>วันหมดอายุ (Expires At)</th>
               <th>ผู้ใช้ Roblox (User)</th>
               <th>อุปกรณ์ที่ล็อค (HWID)</th>
@@ -536,7 +537,7 @@
           </thead>
           <tbody id="keysTableBody">
             <tr>
-              <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">กำลังโหลดข้อมูล...</td>
+              <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">กำลังโหลดข้อมูล...</td>
             </tr>
           </tbody>
         </table>
@@ -581,6 +582,17 @@
         </select>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">🖥️ จำนวนจอที่เปิดได้พร้อมกัน (Max Screens)</label>
+        <select id="inputMaxScreens" class="form-select">
+          <option value="1" selected>1 จอ (สำหรับผู้เล่นทั่วไป - ค่าเริ่มต้น)</option>
+          <option value="2">2 จอ (สตรีมเมอร์ / ฟาร์ม 2 ไอดี)</option>
+          <option value="3">3 จอ (VIP Package)</option>
+          <option value="5">5 จอ (Pro Farmer)</option>
+          <option value="10">10 จอ (Fleet Farmer)</option>
+          <option value="0">ไม่จำกัดจอ (Unlimited Screens)</option>
+        </select>
+      </div>
       <div class="form-group">
         <label class="form-label">จำนวนคีย์ที่ต้องการสร้าง</label>
         <input type="number" id="inputCount" class="form-input" value="1" min="1" max="100">
@@ -959,7 +971,7 @@
       tbody.innerHTML = '';
 
       if (!data || !data.success || data.keys.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">ไม่พบคีย์ในระบบ</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: var(--text-muted); padding: 30px;">ไม่พบคีย์ในระบบ</td></tr>`;
         allKeysCache = [];
         return;
       }
@@ -1010,6 +1022,20 @@
           robloxUserHtml = `<a href="${profileLink}" target="_blank" style="color: #38bdf8; text-decoration: none; font-weight: 600;">@${k.roblox_username}</a>`;
         }
 
+        // Screens Badge
+        const activeScreens = k.active_screens_count || 0;
+        const maxScreens = k.max_screens !== undefined ? k.max_screens : 1;
+        let screensBadge = '';
+        if (maxScreens === 0) {
+          screensBadge = `<span class="badge" style="background: rgba(0, 229, 255, 0.15); color: #00e5ff; border: 1px solid rgba(0,229,255,0.4);" title="ไม่จำกัดจอ">🟢 ${activeScreens} / ∞ จอ</span>`;
+        } else if (activeScreens >= maxScreens) {
+          screensBadge = `<span class="badge" style="background: rgba(255, 71, 87, 0.2); color: #ff4757; border: 1px solid rgba(255,71,87,0.5);" title="ใช้งานเต็มจำนวนจอแล้ว">🔴 ${activeScreens} / ${maxScreens} จอ (เต็ม)</span>`;
+        } else if (activeScreens > 0) {
+          screensBadge = `<span class="badge" style="background: rgba(0, 255, 136, 0.2); color: #00ff88; border: 1px solid rgba(0,255,136,0.5);" title="กำลังใช้งาน">🟢 ${activeScreens} / ${maxScreens} จอ</span>`;
+        } else {
+          screensBadge = `<span class="badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--border);" title="ยังไม่มีการเปิดจอ">⚪ 0 / ${maxScreens} จอ</span>`;
+        }
+
         tr.innerHTML = `
           <td>
             <span class="key-badge" onclick="copyText('${k.key_code}')" title="คลิกเพื่อคัดลอก">
@@ -1020,6 +1046,7 @@
           <td>${statusBadge}</td>
           <td>${tierBadge}</td>
           <td>${durationText}</td>
+          <td>${screensBadge}</td>
           <td style="font-size: 12px; color: ${k.expires_at && Date.now() > k.expires_at ? 'var(--danger)' : 'inherit'};">${expiresText}</td>
           <td>${robloxUserHtml}</td>
           <td>${hwidHtml}</td>
@@ -1030,6 +1057,8 @@
               <button class="btn-icon" style="color: var(--primary); border-color: rgba(0,229,255,0.4);" onclick="copyRunCode('${k.key_code}')" title="คัดลอกคำสั่งรันให้ลูกค้า">⚡ โค้ด</button>
               ${k.hwid ? `<button class="btn-icon" onclick="resetHwid('${k.key_code}')" title="ปลดล็อคเครื่อง">รีเซ็ต HWID</button>` : ''}
               <button class="btn-icon" onclick="toggleStatus('${k.key_code}')">${k.status === 'banned' ? 'ปลดแบน' : 'แบน'}</button>
+              <button class="btn-icon" onclick="editScreens('${k.key_code}', ${maxScreens})" title="ตั้งค่าจำนวนจอ">🖥️ ปรับจอ</button>
+              <button class="btn-icon" onclick="resetScreens('${k.key_code}')" title="เตะจอที่ค้างอยู่">🔄 รีเซ็ตจอ</button>
               <button class="btn-icon danger" onclick="deleteKey('${k.key_code}')">ลบ</button>
             </div>
           </td>
@@ -1042,6 +1071,30 @@
     function copyText(text) {
       navigator.clipboard.writeText(text);
       showToast('คัดลอกคีย์เรียบร้อยแล้ว: ' + text);
+    }
+
+    async function editScreens(key, current) {
+      const input = prompt(`ตั้งค่าจำนวนจอสูงสุดที่เปิดได้พร้อมกันสำหรับคีย์ ${key}:\n(กรอกตัวเลข เช่น 1, 2, 5 หรือ 0 สำหรับไม่จำกัดจอ)`, current);
+      if (input === null) return;
+      const num = parseInt(input, 10);
+      if (isNaN(num) || num < 0) {
+        showToast('กรุณากรอกตัวเลขที่ถูกต้อง (0 ขึ้นไป)');
+        return;
+      }
+      const res = await apiRequest('/api/admin/keys/update-screens', 'POST', { key, maxScreens: num });
+      if (res && res.success) {
+        showToast(res.message);
+        loadKeys();
+      }
+    }
+
+    async function resetScreens(key) {
+      if (!confirm(`ต้องการรีเซ็ตและเตะจอทั้งหมดที่กำลังรันคีย์ ${key} ออกหรือไม่?\n(มีประโยชน์เวลาเกมหลุดแล้วเซสชันค้างในระบบ)`)) return;
+      const res = await apiRequest('/api/admin/keys/reset-screens', 'POST', { key });
+      if (res && res.success) {
+        showToast(res.message);
+        loadKeys();
+      }
     }
 
     async function resetHwid(key) {

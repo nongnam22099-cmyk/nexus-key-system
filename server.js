@@ -41,12 +41,35 @@ const activeSessions = new Set();
 
 // Active In-Game Players Tracker
 const activePlayers = new Map();
+const activeSessionsMap = new Map();
+
+function getActiveSessionsForKey(keyCode) {
+  if (!keyCode) return [];
+  const cleanKey = keyCode.trim().toUpperCase();
+  const now = Date.now();
+  const list = [];
+  for (const [sId, sess] of activeSessionsMap.entries()) {
+    if (sess.key === cleanKey) {
+      if (now - sess.lastSeen <= 45000) {
+        list.push(sess);
+      } else {
+        activeSessionsMap.delete(sId);
+      }
+    }
+  }
+  return list;
+}
 
 function cleanInactivePlayers() {
   const now = Date.now();
   for (const [key, player] of activePlayers.entries()) {
     if (now - player.lastSeen > 60000) {
       activePlayers.delete(key);
+    }
+  }
+  for (const [sId, sess] of activeSessionsMap.entries()) {
+    if (now - sess.lastSeen > 60000) {
+      activeSessionsMap.delete(sId);
     }
   }
 }
@@ -170,6 +193,8 @@ function handleVerify(req, res) {
   const username = (req.body && req.body.username) || req.query.username || 'Unknown';
   const displayName = (req.body && req.body.displayName) || req.query.displayName || username;
   const userId = (req.body && req.body.userId) || req.query.userId || '0';
+  const jobId = (req.body && req.body.jobId) || req.query.jobId || 'Unknown';
+  const sessionId = (req.body && req.body.sessionId) || req.query.sessionId || `${userId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
   // Check Maintenance Mode
@@ -181,11 +206,54 @@ function handleVerify(req, res) {
     });
   }
 
+  // Pre-check Screen Limit for active keys
+  if (key) {
+    const cleanKey = key.trim().toUpperCase();
+    const keyData = db.getKeyByCode(cleanKey);
+    if (keyData && keyData.status === 'active') {
+      const maxScreens = keyData.max_screens !== undefined ? keyData.max_screens : 1;
+      // 0 means unlimited
+      if (maxScreens > 0) {
+        const activeSessions = getActiveSessionsForKey(cleanKey);
+        const alreadyActive = activeSessions.some(s => s.sessionId === sessionId);
+        if (!alreadyActive && activeSessions.length >= maxScreens) {
+          const failMsg = `🚫 คีย์นี้เปิดใช้งานเต็มจำนวนจอที่กำหนดแล้ว (${activeSessions.length}/${maxScreens} จอ)\nกรุณาปิดหน้าต่างเกมจออื่นก่อน หรือติดต่อแอดมินเพื่อเพิ่มจำนวนจอ`;
+          sendDiscordWebhook('failed', { key, hwid, ip, username, displayName, userId, reason: 'screen_limit_exceeded', message: failMsg });
+          return res.status(403).json({
+            success: false,
+            reason: 'screen_limit_exceeded',
+            currentScreens: activeSessions.length,
+            maxScreens: maxScreens,
+            message: failMsg
+          });
+        }
+      }
+    }
+  }
+
   const result = db.verifyKey(key, hwid, ip, username, userId);
 
-  // Send Discord Webhook in background
+  // If verified successfully, register session
   if (result.success) {
-    sendDiscordWebhook('success', { ...result, ip, username, displayName, userId });
+    activeSessionsMap.set(sessionId, {
+      sessionId,
+      key: result.key,
+      userId,
+      username,
+      displayName,
+      jobId,
+      hwid,
+      ip,
+      firstSeen: Date.now(),
+      lastSeen: Date.now()
+    });
+
+    const activeList = getActiveSessionsForKey(result.key);
+    result.activeScreens = activeList.length;
+    result.maxScreens = result.maxScreens !== undefined ? result.maxScreens : 1;
+    result.sessionId = sessionId;
+
+    sendDiscordWebhook('success', { ...result, ip, username, displayName, userId, activeScreens: activeList.length, maxScreens: result.maxScreens });
   } else {
     sendDiscordWebhook('failed', { key, hwid, ip, username, displayName, userId, reason: result.reason, message: result.message });
   }
@@ -216,6 +284,8 @@ function handleHeartbeat(req, res) {
     });
   }
 
+  const sessionId = (req.body && req.body.sessionId) || req.query.sessionId || `${userId}_${jobId}`;
+
   if (userId && userId !== '0') {
     const playerKey = `${userId}_${key || 'guest'}`;
     const existing = activePlayers.get(playerKey);
@@ -228,6 +298,41 @@ function handleHeartbeat(req, res) {
       firstSeen: existing ? existing.firstSeen : Date.now(),
       lastSeen: Date.now()
     });
+  }
+
+  // Check Screen Limit during heartbeat
+  if (key) {
+    const cleanKey = key.trim().toUpperCase();
+    const keyData = db.getKeyByCode(cleanKey);
+    if (keyData) {
+      const maxScreens = keyData.max_screens !== undefined ? keyData.max_screens : 1;
+      if (maxScreens > 0) {
+        const activeSessions = getActiveSessionsForKey(cleanKey);
+        const thisSess = activeSessions.find(s => s.sessionId === sessionId);
+        if (!thisSess && activeSessions.length >= maxScreens) {
+          return res.json({
+            success: false,
+            kicked: true,
+            screenLimitExceeded: true,
+            reason: `คีย์นี้มีผู้ใช้งานเต็มจำนวนจอแล้ว (${activeSessions.length}/${maxScreens} จอ)`
+          });
+        }
+      }
+
+      const existingSess = activeSessionsMap.get(sessionId);
+      activeSessionsMap.set(sessionId, {
+        sessionId,
+        key: cleanKey,
+        userId,
+        username,
+        displayName,
+        jobId,
+        hwid,
+        ip,
+        firstSeen: existingSess ? existingSess.firstSeen : Date.now(),
+        lastSeen: Date.now()
+      });
+    }
   }
 
   return res.json({
@@ -327,11 +432,16 @@ app.get('/api/admin/stats', authMiddleware, (req, res) => {
 app.get('/api/admin/keys', authMiddleware, (req, res) => {
   const { filter, search } = req.query;
   const keys = db.getAllKeys({ filter, search });
+  for (const k of keys) {
+    const active = getActiveSessionsForKey(k.key_code);
+    k.active_screens_count = active.length;
+    k.max_screens = k.max_screens !== undefined ? k.max_screens : 1;
+  }
   res.json({ success: true, keys });
 });
 
 app.post('/api/admin/keys/generate', authMiddleware, (req, res) => {
-  const { durationHours = 24, note = '', count = 1, prefix, customKey, tier = 'VIP' } = req.body;
+  const { durationHours = 24, note = '', count = 1, prefix, customKey, tier = 'VIP', maxScreens = 1 } = req.body;
   const keyPrefix = prefix || config.keyPrefix || 'NEXUS-';
 
   if (customKey && customKey.trim()) {
@@ -341,7 +451,8 @@ app.post('/api/admin/keys/generate', authMiddleware, (req, res) => {
         durationHours: parseInt(durationHours, 10),
         note,
         customKey: customKey.trim(),
-        tier
+        tier,
+        maxScreens: parseInt(maxScreens, 10)
       });
       return res.json({ success: true, keys: [result.key] });
     } catch (err) {
@@ -372,6 +483,37 @@ app.post('/api/admin/keys/reset-hwid', authMiddleware, (req, res) => {
   if (!key) return res.status(400).json({ success: false, message: 'Key is required' });
   db.resetHwid(key);
   return res.json({ success: true, message: 'HWID reset successful' });
+});
+
+// Update max screens for a key
+app.post('/api/admin/keys/update-screens', authMiddleware, (req, res) => {
+  const { key, maxScreens } = req.body;
+  if (!key) return res.status(400).json({ success: false, message: 'Missing key' });
+  const screens = parseInt(maxScreens, 10) >= 0 ? parseInt(maxScreens, 10) : 1;
+  db.updateKeyMaxScreens(key, screens);
+  res.json({
+    success: true,
+    message: `อัปเดตจำนวนจอของ ${key} เป็น ${screens === 0 ? 'ไม่จำกัด' : screens + ' จอ'} เรียบร้อยแล้ว`,
+    maxScreens: screens
+  });
+});
+
+// Reset active sessions / kick screens for a key
+app.post('/api/admin/keys/reset-screens', authMiddleware, (req, res) => {
+  const { key } = req.body;
+  if (!key) return res.status(400).json({ success: false, message: 'Missing key' });
+  const cleanKey = key.trim().toUpperCase();
+  let kicked = 0;
+  for (const [sId, sess] of activeSessionsMap.entries()) {
+    if (sess.key === cleanKey) {
+      activeSessionsMap.delete(sId);
+      kicked++;
+    }
+  }
+  res.json({
+    success: true,
+    message: `รีเซ็ตการใช้งานหน้าจอของ ${key} เรียบร้อยแล้ว (เตะเซสชันที่ค้างอยู่ ${kicked} จอ)`
+  });
 });
 
 app.post('/api/admin/keys/toggle-status', authMiddleware, (req, res) => {

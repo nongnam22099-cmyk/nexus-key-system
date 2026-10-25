@@ -40,6 +40,7 @@ function initDb() {
   try { db.exec('ALTER TABLE keys ADD COLUMN roblox_username TEXT DEFAULT NULL;'); } catch (e) {}
   try { db.exec('ALTER TABLE keys ADD COLUMN roblox_user_id TEXT DEFAULT NULL;'); } catch (e) {}
   try { db.exec('ALTER TABLE keys ADD COLUMN tier TEXT DEFAULT "VIP";'); } catch (e) {}
+  try { db.exec('ALTER TABLE keys ADD COLUMN max_screens INTEGER DEFAULT 1;'); } catch (e) {}
   try { db.exec('ALTER TABLE access_logs ADD COLUMN roblox_username TEXT DEFAULT NULL;'); } catch (e) {}
 
   db.exec(`
@@ -79,36 +80,37 @@ function generateKeyCode(prefix = 'NEXUS-') {
 }
 
 const dbManager = {
-  createKey({ prefix = 'NEXUS-', durationHours = 24, note = '', customKey = null, tier = 'VIP' }) {
+  createKey({ prefix = 'NEXUS-', durationHours = 24, note = '', customKey = null, tier = 'VIP', maxScreens = 1 }) {
     let keyCode = customKey ? customKey.trim().toUpperCase() : generateKeyCode(prefix);
     const now = Date.now();
     const duration = parseInt(durationHours, 10);
     const safeTier = (tier || 'VIP').toUpperCase();
+    const safeScreens = parseInt(maxScreens, 10) >= 0 ? parseInt(maxScreens, 10) : 1;
 
     const stmt = db.prepare(`
-      INSERT INTO keys (key_code, duration_hours, created_at, status, note, tier)
-      VALUES (?, ?, ?, 'active', ?, ?)
+      INSERT INTO keys (key_code, duration_hours, created_at, status, note, tier, max_screens)
+      VALUES (?, ?, ?, 'active', ?, ?, ?)
     `);
 
     try {
-      stmt.run(keyCode, duration, now, note || '', safeTier);
-      return { success: true, key: keyCode, durationHours: duration, note, tier: safeTier };
+      stmt.run(keyCode, duration, now, note || '', safeTier, safeScreens);
+      return { success: true, key: keyCode, durationHours: duration, note, tier: safeTier, maxScreens: safeScreens };
     } catch (err) {
       if (err.message && err.message.includes('UNIQUE')) {
         // Retry once with new random key
         keyCode = generateKeyCode(prefix);
-        stmt.run(keyCode, duration, now, note || '', safeTier);
+        stmt.run(keyCode, duration, now, note || '', safeTier, safeScreens);
         return { success: true, key: keyCode, durationHours: duration, note, tier: safeTier };
       }
       throw err;
     }
   },
 
-  createBulkKeys({ prefix = 'NEXUS-', durationHours = 24, note = '', count = 1, tier = 'VIP' }) {
+  createBulkKeys({ prefix = 'NEXUS-', durationHours = 24, note = '', count = 1, tier = 'VIP', maxScreens = 1 }) {
     const total = Math.min(Math.max(parseInt(count, 10) || 1, 1), 100);
     const keys = [];
     for (let i = 0; i < total; i++) {
-      const res = this.createKey({ prefix, durationHours, note: note ? `${note} (#${i + 1})` : '', tier });
+      const res = this.createKey({ prefix, durationHours, note: note ? `${note} (#${i + 1})` : '', tier, maxScreens });
       keys.push(res.key);
     }
     return keys;
@@ -214,7 +216,8 @@ const dbManager = {
       note: keyData.note || '',
       robloxUsername: boundRobloxUser,
       robloxUserId: boundRobloxId,
-      tier: keyData.tier || 'VIP'
+      tier: keyData.tier || 'VIP',
+      maxScreens: keyData.max_screens !== undefined ? keyData.max_screens : 1
     };
   },
 
@@ -244,6 +247,20 @@ const dbManager = {
     query += ' ORDER BY id DESC';
     const stmt = db.prepare(query);
     return stmt.all(...params);
+  },
+
+  getKeyByCode(keyCode) {
+    if (!keyCode) return null;
+    const cleanKey = keyCode.trim().toUpperCase();
+    return db.prepare('SELECT * FROM keys WHERE key_code = ?').get(cleanKey);
+  },
+
+  updateKeyMaxScreens(keyCode, maxScreens) {
+    if (!keyCode) return false;
+    const cleanKey = keyCode.trim().toUpperCase();
+    const screens = parseInt(maxScreens, 10) >= 0 ? parseInt(maxScreens, 10) : 1;
+    db.prepare('UPDATE keys SET max_screens = ? WHERE key_code = ?').run(screens, cleanKey);
+    return true;
   },
 
   deleteKey(keyCode) {

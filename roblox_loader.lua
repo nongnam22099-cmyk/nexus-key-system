@@ -6,6 +6,7 @@
 ]]
 
 local API_URL = "http://localhost:3000" -- เปลี่ยนเป็น Domain/URL เซิร์ฟเวอร์จริงเมื่อนำขึ้นเว็บ
+local SESSION_ID = HttpService:GenerateGUID(false)
 local KEY_FILE = "nexus_key.txt"
 local DISCORD_INVITE = "https://discord.gg/your-discord"
 
@@ -86,6 +87,7 @@ local function executeMainScript(key)
     local username = LocalPlayer and LocalPlayer.Name or "Unknown"
     local userId = LocalPlayer and tostring(LocalPlayer.UserId) or "0"
     local fetchUrl = API_URL .. "/api/get-script?key=" .. HttpService:UrlEncode(key) .. "&hwid=" .. HttpService:UrlEncode(hwid) .. "&username=" .. HttpService:UrlEncode(username) .. "&userId=" .. HttpService:UrlEncode(userId)
+        .. "&sessionId=" .. HttpService:UrlEncode(SESSION_ID)
     local ok, scriptContent = pcall(function()
         return game:HttpGet(fetchUrl)
     end)
@@ -117,9 +119,23 @@ local function startHeartbeatLoop(validatedKey)
                 .. "&displayName=" .. HttpService:UrlEncode(displayName)
                 .. "&userId=" .. HttpService:UrlEncode(userId)
                 .. "&jobId=" .. HttpService:UrlEncode(jobId)
+                .. "&sessionId=" .. HttpService:UrlEncode(SESSION_ID)
 
             local res = sendHttpRequest(heartbeatUrl, "GET")
             if res and typeof(res) == "table" then
+                -- Check Screen Limit / Kicked by Admin
+                if res.screenLimitExceeded or res.kicked then
+                    pcall(function()
+                        game:GetService("StarterGui"):SetCore("SendNotification", {
+                            Title = "🚫 เกินจำนวนจอที่อนุญาต",
+                            Text = res.reason or "คีย์นี้เปิดใช้งานเกินจำนวนจอที่กำหนด",
+                            Duration = 10
+                        })
+                    end)
+                    print("[Nexus Hub] Session disconnected: " .. tostring(res.reason))
+                    return -- Stop heartbeat
+                end
+
                 -- Check Kill Switch / Maintenance
                 if res.maintenance then
                     pcall(function()
