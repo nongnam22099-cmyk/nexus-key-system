@@ -42,6 +42,7 @@ const activeSessions = new Set();
 // Active In-Game Players Tracker
 const activePlayers = new Map();
 const activeSessionsMap = new Map();
+const oneTimeScriptTokens = new Map();
 
 function getActiveSessionsForKey(keyCode) {
   if (!keyCode) return [];
@@ -70,6 +71,11 @@ function cleanInactivePlayers() {
   for (const [sId, sess] of activeSessionsMap.entries()) {
     if (now - sess.lastSeen > 60000) {
       activeSessionsMap.delete(sId);
+    }
+  }
+  for (const [t, data] of oneTimeScriptTokens.entries()) {
+    if (now > data.expiresAt) {
+      oneTimeScriptTokens.delete(t);
     }
   }
 }
@@ -169,6 +175,31 @@ async function sendDiscordWebhook(type, data = {}) {
     };
   }
 
+  else if (type === 'tamper') {
+    const playerText = (data.userId && data.userId !== '0' && data.username && data.username !== 'Unknown')
+      ? `[${data.username}](https://www.roblox.com/users/${data.userId}/profile)`
+      : (data.username || 'Unknown');
+
+    embed = {
+      title: '🚨 ตรวจพบการพยายามดูดสคริปต์ / แฮกเกอร์ (Anti-Tamper Triggered)!',
+      description: 'ระบบความปลอดภัยตรวจจับเครื่องมือส่องโค้ด (Dex Explorer, Spy หรือ Hooking)\n🛡️ **ระบบได้ทำการแบนผู้ใช้และตัดเซสชันเกมทันที (Auto-Banned & Kicked)**',
+      color: 0xFF1E56,
+      thumbnail: (data.userId && data.userId !== '0') ? {
+        url: `https://www.roblox.com/headshot-thumbnail/image?userId=${data.userId}&width=420&height=420&format=png`
+      } : undefined,
+      fields: [
+        { name: '👤 ผู้เล่นที่พยายามดูด', value: playerText, inline: true },
+        { name: '🆔 User ID', value: `\`${data.userId || '-'}\``, inline: true },
+        { name: '⚠️ ประเภทการตรวจจับ', value: `\`${data.threatType || 'Suspicious Activity'}\``, inline: false },
+        { name: '🔑 คีย์ที่ใช้', value: `\`${data.key || '-'}\``, inline: true },
+        { name: '💻 เครื่อง (HWID)', value: `\`${data.hwid || '-'}\``, inline: false },
+        { name: '⚡ การจัดการ', value: '🔴 แบนบัญชีอัตโนมัติ (Added to Blacklist) + สั่งตัดเกมทันที', inline: false }
+      ],
+      footer: { text: 'Nexus Shield • Anti-Tamper Security Engine' },
+      timestamp: new Date().toISOString()
+    };
+  }
+
   if (!embed) return;
 
   try {
@@ -253,6 +284,18 @@ function handleVerify(req, res) {
     result.maxScreens = result.maxScreens !== undefined ? result.maxScreens : 1;
     result.sessionId = sessionId;
 
+    // Generate single-use script token (burned after first fetch)
+    const scriptToken = crypto.randomBytes(24).toString('hex');
+    oneTimeScriptTokens.set(scriptToken, {
+      key: result.key,
+      hwid,
+      ip,
+      username,
+      userId,
+      expiresAt: Date.now() + 30000 // 30s TTL
+    });
+    result.scriptToken = scriptToken;
+
     sendDiscordWebhook('success', { ...result, ip, username, displayName, userId, activeScreens: activeList.length, maxScreens: result.maxScreens });
   } else {
     sendDiscordWebhook('failed', { key, hwid, ip, username, displayName, userId, reason: result.reason, message: result.message });
@@ -260,6 +303,44 @@ function handleVerify(req, res) {
 
   return res.json(result);
 }
+
+// Anti-Tamper Security Alert & Auto-Blacklist
+app.post('/api/security/tamper-alert', (req, res) => {
+  const { key, hwid, username, userId, threatType, details } = req.body || {};
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+
+  console.warn(`[SECURITY ALERT] Tamper attempt detected from @${username} (ID: ${userId}, HWID: ${hwid}): ${threatType}`);
+
+  // 1. Auto-Ban into Blacklist
+  if (hwid && hwid !== 'Unknown') {
+    db.addBlacklist({ type: 'hwid', target: hwid, reason: `Auto-Ban: Tamper/Dump Attempt (${threatType || 'Exploitation'})` });
+  }
+  if (userId && userId !== '0') {
+    db.addBlacklist({ type: 'userId', target: userId, reason: `Auto-Ban: Tamper/Dump Attempt (${threatType || 'Exploitation'})` });
+  }
+  if (username && username !== 'Unknown') {
+    db.addBlacklist({ type: 'username', target: username, reason: `Auto-Ban: Tamper/Dump Attempt (${threatType || 'Exploitation'})` });
+  }
+
+  // 2. Ban Key if used maliciously
+  if (key && key !== 'Unknown') {
+    db.toggleKeyStatus(key, 'banned');
+  }
+
+  // 3. Terminate active sessions immediately
+  for (const [sId, sess] of activeSessionsMap.entries()) {
+    if (sess.hwid === hwid || sess.userId === userId || sess.key === key) {
+      activeSessionsMap.delete(sId);
+    }
+  }
+
+  // 4. Send High-Priority Red Webhook to Discord
+  sendDiscordWebhook('tamper', {
+    key, hwid, username, userId, ip, threatType, details
+  });
+
+  return res.json({ success: true, banned: true, message: 'Threat neutralized. Security action taken.' });
+});
 
 app.post('/api/verify', handleVerify);
 app.get('/api/verify', handleVerify);
@@ -369,20 +450,40 @@ app.get('/loader', (req, res) => {
 
 // Secure Loader endpoint: returns script content if key is valid
 app.get('/api/get-script', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+
   if (config.maintenanceMode) {
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     return res.send(`-- [Nexus Hub] Maintenance Mode\nerror("[Nexus Hub] Server Maintenance: ${config.maintenanceReason || 'ปิดปรับปรุงชั่วคราว'}", 0)`);
   }
 
+  const token = req.query.token;
   const key = req.query.key;
   const hwid = req.query.hwid;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
-  const verify = db.verifyKey(key, hwid, ip);
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  let authorized = false;
 
-  if (!verify.success) {
-    return res.send(`-- [Nexus Hub] Access Denied\nerror("[Nexus Hub] Key Verification Failed: ${verify.message}", 0)`);
+  // 1. One-time Script Token verification (Anti-Dump & Anti-Link Sharing)
+  if (token && oneTimeScriptTokens.has(token)) {
+    const tokenData = oneTimeScriptTokens.get(token);
+    // Burn token immediately! Single-use only
+    oneTimeScriptTokens.delete(token);
+
+    if (Date.now() <= tokenData.expiresAt) {
+      authorized = true;
+    } else {
+      return res.status(403).send(`-- [Nexus Shield Security]\nerror("[Nexus Shield] Script token expired. Anti-dump protection triggered.", 0)`);
+    }
+  } else if (key) {
+    // 2. Direct key verification fallback
+    const verify = db.verifyKey(key, hwid, ip);
+    if (verify.success) {
+      authorized = true;
+    } else {
+      return res.status(403).send(`-- [Nexus Hub] Access Denied\nerror("[Nexus Hub] Key Verification Failed: ${verify.message}", 0)`);
+    }
+  } else {
+    return res.status(403).send(`-- [Nexus Shield Security]\nerror("[Nexus Shield] Access Denied: Missing valid one-time security token.", 0)`);
   }
 
   // Load script

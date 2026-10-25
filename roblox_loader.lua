@@ -17,6 +17,119 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 -- Get HWID safely across different executors
+
+-- ============================================================================
+-- 🛡️ NEXUS SHIELD | ADVANCED ANTI-TAMPER & ANTI-DUMP PROTECTION ENGINE
+-- ============================================================================
+local function reportTamperAttempt(threatType, details)
+    pcall(function()
+        local hwid = getClientHWID()
+        local username = LocalPlayer and LocalPlayer.Name or "Unknown"
+        local userId = LocalPlayer and tostring(LocalPlayer.UserId) or "0"
+        local alertUrl = API_URL .. "/api/security/tamper-alert"
+        local payload = {
+            key = getgenv().NexusKey or "Unknown",
+            hwid = hwid,
+            username = username,
+            userId = userId,
+            threatType = threatType,
+            details = details or "Security signature triggered"
+        }
+        sendHttpRequest(alertUrl, "POST", payload)
+    end)
+
+    pcall(function()
+        if LocalPlayer then
+            LocalPlayer:Kick("\n\n[Nexus Shield Security]\n🚨 ตรวจพบการพยายามดูดสคริปต์หรือเจาะระบบ (Anti-Tamper): " .. tostring(threatType) .. "\nเครื่องและบัญชีของคุณถูกระงับสิทธิ์ถาวร (Blacklisted)\n")
+        end
+    end)
+    task.wait(1)
+    while true do end -- Freeze execution thread immediately
+end
+
+-- 1. Anti-Hooking Integrity Checker
+local function verifyIntegrity()
+    local isTampered = false
+    local threat = ""
+
+    if isfunctionhooked then
+        if isfunctionhooked(game.HttpGet) or isfunctionhooked(game.HttpPost) then
+            isTampered = true
+            threat = "game.HttpGet / HttpPost hook detected (isfunctionhooked)"
+        end
+    end
+
+    if isluaclosure then
+        if isluaclosure(game.HttpGet) or isluaclosure(game.HttpPost) then
+            isTampered = true
+            threat = "game.HttpGet replaced with Lua Closure (Hooked)"
+        end
+    end
+
+    if iscclosure and not iscclosure(game.HttpGet) then
+        isTampered = true
+        threat = "game.HttpGet is not a native C-closure"
+    end
+
+    local gmt = getrawmetatable and getrawmetatable(game)
+    if gmt and isfunctionhooked and gmt.__namecall and isfunctionhooked(gmt.__namecall) then
+        isTampered = true
+        threat = "Game Metamethod __namecall Hooked"
+    end
+
+    if isTampered then
+        reportTamperAttempt("Anti-Hooking: " .. threat, threat)
+        return false
+    end
+    return true
+end
+
+-- 2. Anti-Dex Explorer & RemoteSpy Active Scanner
+local function startActiveSecurityScanner()
+    task.spawn(function()
+        local suspiciousGuis = {
+            "Dex", "DarkDex", "SimpleSpy", "SimpleSpy2", "Hydroxide", 
+            "TurtleSpy", "RemoteSpy", "DataModelSpy", "ScriptDumper", 
+            "HookSpy", "ConstantDumper", "SpyGui", "CoreGuiSpy"
+        }
+
+        while task.wait(3) do
+            local foundThreat = nil
+
+            -- Check PlayerGui
+            local pGui = LocalPlayer and LocalPlayer:FindFirstChildOfClass("PlayerGui")
+            if pGui then
+                for _, name in ipairs(suspiciousGuis) do
+                    if pGui:FindFirstChild(name) then
+                        foundThreat = name
+                        break
+                    end
+                end
+            end
+
+            -- Check CoreGui / gethui if accessible
+            if not foundThreat then
+                pcall(function()
+                    local targetContainer = (gethui and gethui()) or game:GetService("CoreGui")
+                    if targetContainer then
+                        for _, name in ipairs(suspiciousGuis) do
+                            if targetContainer:FindFirstChild(name) then
+                                foundThreat = name
+                                break
+                            end
+                        end
+                    end
+                end)
+            end
+
+            if foundThreat then
+                reportTamperAttempt("Unauthorized Tool: " .. foundThreat, "Found GUI signature in memory")
+                break
+            end
+        end
+    end)
+end
+
 local function getClientHWID()
     if typeof(gethwid) == "function" then
         local ok, id = pcall(gethwid)
