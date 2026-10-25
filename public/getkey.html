@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nexus Hub - License Status & Key Checker</title>
+  <title>Nexus Hub - Get Key & License Status</title>
   <style>
     :root {
       --bg: #090d16;
@@ -27,8 +27,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 40px 20px;
+      padding: 30px 20px;
     }
     .header {
       text-align: center;
@@ -58,20 +57,25 @@
       color: var(--text-muted);
       font-size: 14px;
     }
-    .card-container {
-      max-width: 580px;
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 24px;
+      max-width: 960px;
       width: 100%;
     }
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 20px;
-      padding: 36px 32px;
-      box-shadow: 0 12px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 229, 255, 0.15);
+      padding: 32px 28px;
+      box-shadow: 0 12px 50px rgba(0, 0, 0, 0.6), 0 0 25px rgba(0, 229, 255, 0.12);
       backdrop-filter: blur(15px);
+      display: flex;
+      flex-direction: column;
     }
     .card-title {
-      font-size: 22px;
+      font-size: 21px;
       font-weight: 700;
       color: #fff;
       margin-bottom: 8px;
@@ -82,11 +86,11 @@
     .card-desc {
       font-size: 13.5px;
       color: var(--text-muted);
-      margin-bottom: 24px;
+      margin-bottom: 22px;
       line-height: 1.6;
     }
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
     label {
       display: block;
@@ -97,12 +101,12 @@
     }
     input[type="text"] {
       width: 100%;
-      padding: 14px 16px;
+      padding: 13px 15px;
       background: rgba(10, 14, 23, 0.95);
       border: 1px solid var(--border);
       border-radius: 12px;
       color: #fff;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
       outline: none;
       font-family: 'Consolas', monospace;
@@ -115,9 +119,9 @@
     }
     .btn {
       width: 100%;
-      padding: 15px;
+      padding: 14px;
       border-radius: 12px;
-      font-size: 15px;
+      font-size: 14.5px;
       font-weight: 700;
       cursor: pointer;
       border: none;
@@ -126,11 +130,22 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
+    }
+    .btn-cyan {
+      background: linear-gradient(135deg, #00e5ff 0%, #00b4d8 100%);
+      color: #090d16;
+      box-shadow: 0 4px 15px rgba(0, 229, 255, 0.35);
+    }
+    .btn-cyan:hover {
+      box-shadow: 0 6px 25px rgba(0, 229, 255, 0.55);
+      transform: translateY(-2px);
+    }
+    .btn-purple {
       background: linear-gradient(135deg, #7928ca 0%, #a855f7 100%);
       color: #fff;
       box-shadow: 0 4px 15px rgba(121, 40, 202, 0.35);
     }
-    .btn:hover {
+    .btn-purple:hover {
       box-shadow: 0 6px 25px rgba(121, 40, 202, 0.55);
       transform: translateY(-2px);
     }
@@ -141,11 +156,11 @@
     }
     .result-box {
       display: none;
-      margin-top: 24px;
-      padding: 20px;
+      margin-top: 20px;
+      padding: 18px;
       background: rgba(10, 14, 23, 0.9);
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
       font-size: 13.5px;
       animation: fadeIn 0.3s ease;
     }
@@ -157,13 +172,13 @@
     }
     .key-display {
       font-family: 'Consolas', monospace;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--primary);
       background: rgba(0, 229, 255, 0.1);
       padding: 10px 14px;
       border-radius: 8px;
-      margin: 12px 0;
+      margin: 10px 0;
       word-break: break-all;
       display: flex;
       justify-content: space-between;
@@ -171,7 +186,7 @@
       border: 1px solid rgba(0, 229, 255, 0.2);
     }
     .copy-btn {
-      padding: 6px 12px;
+      padding: 5px 12px;
       background: rgba(255, 255, 255, 0.12);
       border: 1px solid var(--border);
       color: #fff;
@@ -196,7 +211,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 0;
+      padding: 8px 0;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
     .info-row:last-child { border-bottom: none; }
@@ -206,6 +221,17 @@
       font-size: 13px;
       color: var(--text-muted);
     }
+    pre.code-box {
+      background: #060911;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: 'Consolas', monospace;
+      color: #38bdf8;
+      overflow-x: auto;
+      margin-top: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
   </style>
 </head>
 <body>
@@ -213,16 +239,44 @@
   <div class="header">
     <div class="logo-badge">Official License Portal</div>
     <h1>NEXUS HUB</h1>
-    <p class="subtitle">ระบบตรวจสอบสถานะสิทธิ์และการใช้งานคีย์ (License Status)</p>
+    <p class="subtitle">ระบบรับคีย์ฟรีรายวัน และตรวจสอบสถานะสิทธิ์การใช้งาน (Key System)</p>
   </div>
 
-  <div class="card-container">
+  <div class="grid">
+    
+    <!-- Card 1: Free Daily Key -->
+    <div class="card">
+      <div class="card-title">
+        🎁 รับคีย์ฟรีรายวัน (Free 24h Key)
+      </div>
+      <p class="card-desc">
+        แจกคีย์ฟรีสำหรับทดลองใช้งาน Nexus Hub มีอายุ 24 ชั่วโมงต่อการรับ 1 ครั้ง (จำกัด 1 คีย์ ต่อ 1 เครื่อง/IP ต่อวัน)
+      </p>
+
+      <button class="btn btn-cyan" id="btnClaimFree">
+        กดรับคีย์ฟรี 24 ชม. (Claim Free Key)
+      </button>
+
+      <div class="result-box result-success" id="freeKeyResult">
+        <div style="font-weight: 700; color: var(--success); margin-bottom: 6px;">
+          ✅ รับคีย์ฟรี 24 ชม. สำเร็จ!
+        </div>
+        <div class="key-display">
+          <span id="displayFreeKeyCode">FREE-XXXX-XXXX-XXXX</span>
+          <button class="copy-btn" id="btnCopyFreeKey">คัดลอก</button>
+        </div>
+        <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 6px;">คำสั่งรันในเกม:</div>
+        <pre class="code-box" id="runCodeSnippet"></pre>
+      </div>
+    </div>
+
+    <!-- Card 2: Check Key Status -->
     <div class="card">
       <div class="card-title">
         🔍 ตรวจสอบสถานะคีย์ (Key Checker)
       </div>
       <p class="card-desc">
-        ตรวจสอบว่าคีย์ของคุณมีอายุเหลือเท่าไหร่, เปิดใช้งานไปแล้วหรือยัง, เชื่อมต่อกับผู้ใช้ Roblox คนไหน, และเปิดได้กี่จอ
+        ตรวจสอบว่าคีย์ของคุณเหลือเวลากี่วัน/กี่ชั่วโมง หมดอายุหรือยัง หรือล็อคกับอุปกรณ์เครื่องไหนอยู่
       </p>
 
       <div class="form-group">
@@ -230,36 +284,75 @@
         <input type="text" id="inputKeyCheck" placeholder="เช่น NEXUS-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false">
       </div>
 
-      <button class="btn" id="btnCheckKey">
-        🔍 ตรวจสอบคีย์ (Check Status)
+      <button class="btn btn-purple" id="btnCheckKey">
+        ตรวจสอบคีย์ (Check Status)
       </button>
 
       <div class="result-box" id="checkResultBox">
         <div id="checkResultContent"></div>
       </div>
     </div>
+
   </div>
 
   <div class="footer">
-    ต้องการซื้อคีย์ หรือสอบถามข้อมูลเพิ่มเติม? ติดต่อได้ใน Discord ของเรา
+    ต้องการซื้อคีย์ถาวร (Lifetime VIP) หรือสอบถามข้อมูลเพิ่มเติม? ติดต่อได้ใน Discord ของเรา
   </div>
 
   <script>
     function copyText(txt) {
       navigator.clipboard.writeText(txt);
-      alert('คัดลอกคีย์เรียบร้อยแล้ว: ' + txt);
+      alert('คัดลอกเรียบร้อยแล้ว: ' + txt);
     }
 
+    // 1. Claim Free Key
+    const btnClaim = document.getElementById('btnClaimFree');
+    const freeBox = document.getElementById('freeKeyResult');
+    const freeCodeSpan = document.getElementById('displayFreeKeyCode');
+    const btnCopyFree = document.getElementById('btnCopyFreeKey');
+    const runCodeSnippet = document.getElementById('runCodeSnippet');
+
+    btnClaim.onclick = async () => {
+      btnClaim.disabled = true;
+      btnClaim.innerText = 'กำลังตรวจสอบสิทธิ์...';
+
+      try {
+        const res = await fetch('/api/public/claim-free-key', { method: 'POST' });
+        const data = await res.json();
+        freeBox.style.display = 'block';
+
+        if (data.success) {
+          freeBox.className = 'result-box result-success';
+          freeCodeSpan.innerText = data.key;
+          const host = window.location.origin;
+          runCodeSnippet.innerText = 'getgenv().NexusKey = "' + data.key + '"\nloadstring(game:HttpGet("' + host + '/loader", true))()';
+          btnCopyFree.onclick = () => copyText(data.key);
+        } else {
+          freeBox.className = 'result-box result-error';
+          freeBox.innerHTML = '<div style="font-weight: 700; color: var(--danger); margin-bottom: 4px;">⚠️ ไม่สามารถรับคีย์ได้</div>' +
+            '<div style="color: var(--text-muted); font-size: 13px;">' + (data.message || 'เกิดข้อผิดพลาด') + '</div>';
+        }
+      } catch (err) {
+        freeBox.style.display = 'block';
+        freeBox.className = 'result-box result-error';
+        freeBox.innerHTML = '<div style="color: var(--danger);">การเชื่อมต่อขัดข้อง กรุณาลองใหม่</div>';
+      } finally {
+        btnClaim.disabled = false;
+        btnClaim.innerText = 'กดรับคีย์ฟรี 24 ชม. (Claim Free Key)';
+      }
+    };
+
+    // 2. Check Key Status with Smart Auto-Format
     const btnCheck = document.getElementById('btnCheckKey');
     const checkInput = document.getElementById('inputKeyCheck');
     const checkBox = document.getElementById('checkResultBox');
     const checkContent = document.getElementById('checkResultContent');
 
     // Auto-format on input (replace spaces with hyphens, force uppercase)
-    checkInput.addEventListener('input', (e) => {
+    checkInput.addEventListener('input', () => {
       const start = checkInput.selectionStart;
       const end = checkInput.selectionEnd;
-      const formatted = checkInput.value.replace(/\\s+/g, '-').toUpperCase();
+      const formatted = checkInput.value.replace(/\s+/g, '-').toUpperCase();
       if (checkInput.value !== formatted) {
         checkInput.value = formatted;
         checkInput.setSelectionRange(start, end);
@@ -273,7 +366,7 @@
     });
 
     btnCheck.onclick = async () => {
-      let key = checkInput.value.trim().toUpperCase().replace(/\\s+/g, '-');
+      let key = checkInput.value.trim().toUpperCase().replace(/\s+/g, '-');
       if (!key) return alert('กรุณากรอกรหัสคีย์');
 
       btnCheck.disabled = true;
@@ -300,63 +393,61 @@
 
           const remainingText = data.lifetime 
             ? 'ใช้งานได้ตลอดชีพ' 
-            : (data.remainingHours !== null ? `${data.remainingHours} ชั่วโมง` : 'ยังไม่เริ่มนับเวลา');
+            : (data.remainingHours !== null ? (data.remainingHours + ' ชั่วโมง') : 'ยังไม่เริ่มนับเวลา');
 
           const robloxUserText = data.robloxUser 
-            ? `<span style="color: var(--primary); font-weight: 700;">@${data.robloxUser}</span>` 
+            ? ('<span style="color: var(--primary); font-weight: 700;">@' + data.robloxUser + '</span>') 
             : '<span style="color: var(--text-muted);">ยังไม่มีผู้ใช้เชื่อมต่อ</span>';
 
           const screensText = (data.maxScreens === 0)
             ? '<span style="color: var(--primary); font-weight: 700;">ไม่จำกัดจอ (Unlimited)</span>'
-            : `<span style="color: var(--success); font-weight: 700;">${data.maxScreens || 1} จอ</span>`;
+            : ('<span style="color: var(--success); font-weight: 700;">' + (data.maxScreens || 1) + ' จอ</span>');
 
-          checkContent.innerHTML = `
-            <div style="font-weight: 700; color: var(--success); font-size: 15px; margin-bottom: 8px;">
-              ✅ พบคีย์ในระบบ (Key Verified)
-            </div>
-            <div class="key-display">
-              <span>\${data.key}</span>
-              <button class="copy-btn" onclick="copyText('\${data.key}')">คัดลอก</button>
-            </div>
-            <div class="info-row">
-              <span style="color: var(--text-muted);">ระดับสิทธิ์ (Tier):</span>
-              \${tierBadge}
-            </div>
-            <div class="info-row">
-              <span style="color: var(--text-muted);">สถานะ (Status):</span>
-              <span style="font-weight: 700; color: \${data.status === 'banned' ? 'var(--danger)' : 'var(--success)'};">\${data.statusText}</span>
-            </div>
-            <div class="info-row">
-              <span style="color: var(--text-muted);">จำนวนจอที่อนุญาต:</span>
-              \${screensText}
-            </div>
-            <div class="info-row">
-              <span style="color: var(--text-muted);">เวลาที่เหลือ:</span>
-              <span style="font-weight: 600;">\${remainingText}</span>
-            </div>
-            <div class="info-row">
-              <span style="color: var(--text-muted);">วันหมดอายุ:</span>
-              <span>\${expiresText}</span>
-            </div>
-            <div class="info-row">
-              <span style="color: var(--text-muted);">ผู้ใช้ Roblox ที่ผูกไว้:</span>
-              \${robloxUserText}
-            </div>
-            <div class="info-row">
-              <span style="color: var(--text-muted);">อุปกรณ์ (HWID):</span>
-              <span>\${data.hwidBound ? '<span style="color: var(--success);">ผูกอุปกรณ์แล้ว</span>' : '<span style="color: var(--text-muted);">ยังไม่ผูกอุปกรณ์</span>'}</span>
-            </div>
-          `;
+          checkContent.innerHTML = 
+            '<div style="font-weight: 700; color: var(--success); font-size: 15px; margin-bottom: 8px;">' +
+            '  ✅ พบคีย์ในระบบ (Key Verified)' +
+            '</div>' +
+            '<div class="key-display">' +
+            '  <span>' + data.key + '</span>' +
+            '  <button class="copy-btn" onclick="copyText(\'' + data.key + '\')">คัดลอก</button>' +
+            '</div>' +
+            '<div class="info-row">' +
+            '  <span style="color: var(--text-muted);">ระดับสิทธิ์ (Tier):</span>' +
+            '  ' + tierBadge +
+            '</div>' +
+            '<div class="info-row">' +
+            '  <span style="color: var(--text-muted);">สถานะ (Status):</span>' +
+            '  <span style="font-weight: 700; color: ' + (data.status === 'banned' ? 'var(--danger)' : 'var(--success)') + ';">' + data.statusText + '</span>' +
+            '</div>' +
+            '<div class="info-row">' +
+            '  <span style="color: var(--text-muted);">จำนวนจอที่อนุญาต:</span>' +
+            '  ' + screensText +
+            '</div>' +
+            '<div class="info-row">' +
+            '  <span style="color: var(--text-muted);">เวลาที่เหลือ:</span>' +
+            '  <span style="font-weight: 600;">' + remainingText + '</span>' +
+            '</div>' +
+            '<div class="info-row">' +
+            '  <span style="color: var(--text-muted);">วันหมดอายุ:</span>' +
+            '  <span>' + expiresText + '</span>' +
+            '</div>' +
+            '<div class="info-row">' +
+            '  <span style="color: var(--text-muted);">ผู้ใช้ Roblox ที่ผูกไว้:</span>' +
+            '  ' + robloxUserText +
+            '</div>' +
+            '<div class="info-row">' +
+            '  <span style="color: var(--text-muted);">อุปกรณ์ (HWID):</span>' +
+            '  <span>' + (data.hwidBound ? '<span style="color: var(--success);">ผูกอุปกรณ์แล้ว</span>' : '<span style="color: var(--text-muted);">ยังไม่ผูกอุปกรณ์</span>') + '</span>' +
+            '</div>';
         } else {
           checkBox.className = 'result-box result-error';
-          checkContent.innerHTML = `
-            <div style="font-weight: 700; color: var(--danger); font-size: 14px; margin-bottom: 4px;">
-              ❌ ตรวจสอบไม่ผ่าน
-            </div>
-            <div style="color: var(--text-muted); font-size: 13px;">
-              \${data.message || 'ไม่พบคีย์นี้ในระบบ กรุณาตรวจสอบตัวอักษรอีกครั้ง'}
-            </div>
-          `;
+          checkContent.innerHTML = 
+            '<div style="font-weight: 700; color: var(--danger); font-size: 14px; margin-bottom: 4px;">' +
+            '  ❌ ตรวจสอบไม่ผ่าน' +
+            '</div>' +
+            '<div style="color: var(--text-muted); font-size: 13px;">' +
+            '  ' + (data.message || 'ไม่พบคีย์นี้ในระบบ กรุณาตรวจสอบตัวอักษรอีกครั้ง') +
+            '</div>';
         }
       } catch (err) {
         checkBox.style.display = 'block';
@@ -364,7 +455,7 @@
         checkContent.innerHTML = '<div style="color: var(--danger);">เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์</div>';
       } finally {
         btnCheck.disabled = false;
-        btnCheck.innerText = '🔍 ตรวจสอบคีย์ (Check Status)';
+        btnCheck.innerText = 'ตรวจสอบคีย์ (Check Status)';
       }
     };
   </script>

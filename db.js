@@ -63,7 +63,31 @@ function initDb() {
   `);
 }
 
+
+function seedDefaultKeys() {
+  const seeds = [
+    { key: 'NEXUS-QDQ4-K7XU-Z6AP', tier: 'VIP', duration: 0, note: 'Admin Lifetime VIP Key', maxScreens: 5 },
+    { key: 'NEXUS-QV4M-UM2L-LPWG', tier: 'VIP', duration: 0, note: 'Default Lifetime VIP Key', maxScreens: 3 },
+    { key: 'NEXUS-EPTU-9UUM-2PQF', tier: 'VIP', duration: 720, note: '30-Day VIP Key', maxScreens: 2 },
+    { key: 'FREE-D59R-QK6V-C843', tier: 'FREE', duration: 24, note: 'Daily Free Key', maxScreens: 1 },
+    { key: 'FREE-82UL-XPRA-6CM3', tier: 'FREE', duration: 24, note: 'Daily Free Key', maxScreens: 1 }
+  ];
+
+  for (const s of seeds) {
+    try {
+      const exists = db.prepare('SELECT id FROM keys WHERE key_code = ?').get(s.key);
+      if (!exists) {
+        db.prepare(`
+          INSERT INTO keys (key_code, duration_hours, created_at, status, note, tier, max_screens)
+          VALUES (?, ?, ?, 'active', ?, ?, ?)
+        `).run(s.key, s.duration, Date.now(), s.note, s.tier, s.maxScreens);
+      }
+    } catch (e) {}
+  }
+}
+
 initDb();
+seedDefaultKeys();
 
 function randomString(length = 4) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
